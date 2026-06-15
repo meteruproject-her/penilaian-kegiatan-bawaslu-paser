@@ -1,0 +1,6 @@
+{
+  "name": "Penilaian Kegiatan Bawaslu Paser",
+  "description": "Sistem Penilaian Kegiatan Pendidikan Pengawas Partisipatif Bawaslu Kabupaten Paser.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
