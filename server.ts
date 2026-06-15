@@ -21,8 +21,15 @@ import {
   ChartDataPoints
 } from "./src/types.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Get __filename and __dirname safely across ESM and CJS environments
+const [__filenameResolved, __dirnameResolved] = (() => {
+  const isEsm = typeof import.meta !== "undefined" && !!import.meta.url;
+  const fName = isEsm ? fileURLToPath(import.meta.url) : (typeof __filename !== "undefined" ? __filename : "");
+  const dName = isEsm ? path.dirname(fName) : (typeof __dirname !== "undefined" ? __dirname : "");
+  return [fName, dName];
+})();
+const __filename = __filenameResolved;
+const __dirname = __dirnameResolved;
 
 const app = express();
 const PORT = 3000;
