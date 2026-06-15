@@ -6,7 +6,6 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
-import { createServer as createViteServer } from "vite";
 import { db, initializeDatabase, hashPassword } from "./src/db/connect.js";
 import * as schema from "./src/db/schema.js";
 import { eq, and, avg, count, sql, inArray } from "drizzle-orm";
@@ -963,6 +962,7 @@ app.get("/api/respondents-detail", async (req, res) => {
 // Configure Vite or Serve SPA statically
 async function start() {
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
