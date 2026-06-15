@@ -206,6 +206,7 @@ export default function App() {
   const [isIdentitySaved, setIsIdentitySaved] = useState<boolean>(() => {
     return !!(localStorage.getItem("bawaslu_nama") && localStorage.getItem("bawaslu_instansi"));
   });
+  const [agreeConsent, setAgreeConsent] = useState(false);
 
   // Assessment Forms States
   const [activeSessionData, setActiveSessionData] = useState<SesiResponse | null>(null);
@@ -459,6 +460,10 @@ export default function App() {
       showToast("Mohon lengkapi Nama dan Asal Kampus/Instansi Anda.", "error");
       return;
     }
+    if (!agreeConsent) {
+      showToast("Anda harus menyetujui pernyataan persetujuan partisipasi sebelum memulai.", "error");
+      return;
+    }
     triggerConfirm(
       "Simpan Identitas",
       `Apakah Anda yakin ingin menyimpan identitas dengan nama "${namaPeserta}" dari "${asalInstansi}"?`,
@@ -485,6 +490,7 @@ export default function App() {
           localStorage.removeItem("bawaslu_instansi");
           setNamaPeserta("");
           setAsalInstansi("");
+          setAgreeConsent(false);
           setIsIdentitySaved(false);
           setSubmitSuccess(false);
           // clear ratings too
@@ -2897,7 +2903,7 @@ export default function App() {
         <div className="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col justify-start" id="peserta_workspace">
           
           {/* PROFILE CARD IDENTITAS */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 mb-6" id="identity_card">
+          <div className={`bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col ${isIdentitySaved ? "sm:flex-row sm:items-center sm:justify-between" : "gap-4"} mb-6`} id="identity_card">
             <div className="flex items-start gap-3 sm:gap-4">
               <div className="w-10 h-10 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 flex-shrink-0 mt-0.5">
                 <User className="w-5 h-5" />
@@ -2913,7 +2919,7 @@ export default function App() {
                   </>
                 ) : (
                   <>
-                    <h3 className="text-slate-900 text-sm font-black">Masukan Identitas Peserta</h3>
+                    <h3 className="text-slate-900 text-base font-black">Masukan Identitas Peserta</h3>
                     <p className="text-slate-500 text-xs font-medium">Lengkapi nama dan asal instansi Anda sebelum mengisi penilaian.</p>
                   </>
                 )}
@@ -2929,30 +2935,61 @@ export default function App() {
                 Ganti Nama/Identitas &larr;
               </button>
             ) : (
-              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto" id="inputs_identity_form">
-                <input
-                  type="text"
-                  placeholder="Nama Lengkap..."
-                  value={namaPeserta}
-                  onChange={e => setNamaPeserta(e.target.value)}
-                  className="px-3.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white"
-                  id="input_id_nama"
-                />
-                <input
-                  type="text"
-                  placeholder="Asal Kampus / Instansi..."
-                  value={asalInstansi}
-                  onChange={e => setAsalInstansi(e.target.value)}
-                  className="px-3.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white"
-                  id="input_id_instansi"
-                />
-                <button
-                  onClick={handleSaveIdentity}
-                  className="px-4 py-1.5 bg-rose-600 text-white text-xs font-extrabold rounded-lg hover:bg-rose-700 cursor-pointer shadow"
-                  id="btn_submit_identity"
-                >
-                  Mulai Menilai
-                </button>
+              <div className="flex flex-col gap-4 w-full" id="inputs_identity_form">
+                <div className="flex flex-col sm:flex-row gap-3 w-full">
+                  <div className="flex-1 flex flex-col gap-1.5">
+                    <label htmlFor="input_id_nama" className="text-slate-600 text-[11px] font-bold tracking-wider uppercase">Nama Lengkap</label>
+                    <input
+                      type="text"
+                      placeholder="Contoh: Ahmad Rizky"
+                      value={namaPeserta}
+                      onChange={e => setNamaPeserta(e.target.value)}
+                      className="px-3.5 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 bg-white transition-all w-full"
+                      id="input_id_nama"
+                    />
+                  </div>
+                  <div className="flex-1 flex flex-col gap-1.5">
+                    <label htmlFor="input_id_instansi" className="text-slate-600 text-[11px] font-bold tracking-wider uppercase">Asal Kampus / Instansi</label>
+                    <input
+                      type="text"
+                      placeholder="Contoh: Universitas Mulawarman"
+                      value={asalInstansi}
+                      onChange={e => setAsalInstansi(e.target.value)}
+                      className="px-3.5 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 bg-white transition-all w-full"
+                      id="input_id_instansi"
+                    />
+                  </div>
+                </div>
+
+                {/* Persetujuan / Consent Checkbox */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start gap-3 mt-1" id="consent_checkbox_container">
+                  <input
+                    type="checkbox"
+                    id="checkbox_participation_consent"
+                    checked={agreeConsent}
+                    onChange={e => setAgreeConsent(e.target.checked)}
+                    className="w-4.5 h-4.5 text-rose-600 border-slate-300 rounded-md focus:ring-rose-500 focus:ring-offset-0 cursor-pointer mt-0.5 accent-rose-600 animate-pulse"
+                  />
+                  <label htmlFor="checkbox_participation_consent" className="text-xs text-slate-600 font-semibold leading-relaxed cursor-pointer select-none">
+                    Saya setuju untuk berpartisipasi dan mengisi penilaian ini secara sadar tanpa paksaan.
+                  </label>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={handleSaveIdentity}
+                    disabled={!agreeConsent}
+                    className={`px-6 py-2.5 text-sm font-extrabold rounded-xl shadow cursor-pointer transition-all flex items-center justify-center gap-2 ${
+                      agreeConsent 
+                        ? "bg-rose-600 text-white hover:bg-rose-700 hover:shadow-md" 
+                        : "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-100"
+                    }`}
+                    id="btn_submit_identity"
+                  >
+                    <span>Mulai Menilai</span>
+                    <span>&rarr;</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
