@@ -46,6 +46,23 @@ export { pool };
  */
 export async function initializeDatabase() {
   console.log("Memulai pemeriksaan dan seeder data awal menggunakan Drizzle ORM...");
+  
+  let retries = 10;
+  while (retries > 0) {
+    try {
+      await pool.query("SELECT 1;");
+      console.log("Koneksi database PostgreSQL berhasil!");
+      break;
+    } catch (err: any) {
+      retries--;
+      console.warn(`Menunggu PostgreSQL siap (${retries} percobaan tersisa)... error: ${err.message}`);
+      if (retries === 0) {
+        throw err;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+  }
+
   try {
     // Jalankan rekonstruksi DDL mentah jika tabel belum ada untuk menghindari isu TTY drizzle-kit push
     await pool.query(`
