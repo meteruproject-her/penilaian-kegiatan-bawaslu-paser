@@ -732,6 +732,54 @@ export default function App() {
     }
   };
 
+  const handleDeleteRespondent = (id: number, name: string) => {
+    triggerConfirm(
+      "Hapus Penilaian",
+      `Apakah Anda yakin ingin menghapus hasil penilaian dari peserta "${name}"? Tindakan ini bersifat permanen dan akan menghapus nilai kualitatif & kuantitatifnya secara total.`,
+      async () => {
+        try {
+          const res = await fetch(`/api/respondents/${id}`, {
+            method: "DELETE",
+          });
+          if (res.ok) {
+            showToast(`Sukses! Penilaian milik "${name}" berhasil dihapus dari sistem.`, "success");
+            fetchAdminData();
+          } else {
+            const data = await res.json();
+            showToast(data.error || "Gagal menghapus penilaian", "error");
+          }
+        } catch (e: any) {
+          showToast(e.message || "Gagal menghapus penilaian", "error");
+        }
+      },
+      { confirmText: "Ya, Hapus", isDanger: true }
+    );
+  };
+
+  const handleResetAllEvaluations = () => {
+    triggerConfirm(
+      "RESET SEMUA EVALUASI",
+      "PERINGATAN KRITIS: Apakah Anda yakin ingin MENGHAPUS SEMUA DATA RESPONDEN DAN HASIL PENILAIAN? Langkah ini akan menghapus semua isian uji coba/trial. Setelah dihapus, data tidak bisa dikembalikan dan sistem akan dimulai dalam keadaan bersih (fresh) kembali.",
+      async () => {
+        try {
+          const res = await fetch("/api/respondents/reset-all", {
+            method: "POST",
+          });
+          if (res.ok) {
+            showToast("Sukses! Semua hasil penilaian berhasil dibersihkan dari sistem. Keadaan sekarang bersih dan fresh!", "success");
+            fetchAdminData();
+          } else {
+            const data = await res.json();
+            showToast(data.error || "Gagal membersihkan data penilaian", "error");
+          }
+        } catch (e: any) {
+          showToast(e.message || "Gagal membersihkan data penilaian", "error");
+        }
+      },
+      { confirmText: "Ya, Bersihkan Semua", isDanger: true }
+    );
+  };
+
   // Centralized Live Control
   const handleToggleSession = async (sessId: number, isCurrentlyActive: boolean) => {
     const act = isCurrentlyActive ? "Nonaktifkan" : "Aktifkan";
@@ -1177,12 +1225,13 @@ export default function App() {
                       <th className="p-3 min-w-[180px]">Harapan Kedepan</th>
                     </>
                   )}
+                  <th className="p-3 w-20 text-center select-none">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-150">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={15} className="p-10 text-center text-slate-400 italic">
+                    <td colSpan={18} className="p-10 text-center text-slate-400 italic">
                       Tidak ada detail penilaian peserta yang sesuai dengan filter pencarian.
                     </td>
                   </tr>
@@ -1248,6 +1297,16 @@ export default function App() {
                             </td>
                           </>
                         )}
+                        <td className="p-3 text-center">
+                          <button
+                            onClick={() => handleDeleteRespondent(r.id, r.nama_peserta)}
+                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 px-2 py-1 flex items-center justify-center gap-1 rounded-md border border-rose-100 text-[10px] font-extrabold cursor-pointer transition-all mx-auto"
+                            title="Hapus penilaian responden ini"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                            <span>Hapus</span>
+                          </button>
+                        </td>
                       </tr>
                     );
                   })
@@ -2887,6 +2946,36 @@ export default function App() {
                     <RefreshCw className="w-3.5 h-3.5" />
                     <span>Segarkan Data</span>
                   </button>
+                </div>
+
+                {/* MANAGEMENT AND RESET CALLOUT FOR TESTING */}
+                <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center md:justify-between gap-4 shadow-3xs" id="manajemen_hasil_danger_notice">
+                  <div className="flex gap-3">
+                    <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 flex-shrink-0 animate-pulse">
+                      <ShieldAlert className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-slate-900 text-sm font-black">Mode Uji Coba & Manajemen Hasil Penilaian</h3>
+                      <p className="text-slate-500 text-xs mt-1 leading-relaxed max-w-2xl">
+                        Gunakan fitur ini untuk menghapus data evaluasi selama masa pengujian (trial) agar aplikasi siap digunakan secara bersih (fresh) kembali saat acara resmi dimulai. Anda dapat menghapus baris peserta satu per satu di tabel atau membersihkan seluruh data sekaligus.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0 w-full md:w-auto flex justify-end">
+                    <button
+                      onClick={handleResetAllEvaluations}
+                      disabled={detailRespondents.length === 0}
+                      className={`px-4 py-2.5 rounded-xl text-xs font-black shadow-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                        detailRespondents.length === 0
+                          ? "bg-slate-150 text-slate-400 border border-slate-200 cursor-not-allowed"
+                          : "bg-rose-600 hover:bg-rose-700 text-white border border-rose-700 hover:shadow-md"
+                      }`}
+                      id="btn_management_reset_all"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Kosongkan Semua Hasil Penilaian</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs">

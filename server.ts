@@ -966,6 +966,35 @@ app.get("/api/respondents-detail", async (req, res) => {
   }
 });
 
+// --- API DELETE SINGLE RESPONDENT / PARTICIPANT ---
+app.delete("/api/respondents/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "ID responden tidak valid" });
+    }
+    // Deleting participant cascades and deletes all related evaluation_results
+    await db.delete(schema.participants).where(eq(schema.participants.id, id));
+    res.json({ success: true, message: `Responden dengan ID ${id} berhasil dihapus` });
+  } catch (error: any) {
+    console.error("Error DELETE /api/respondents/:id:", error);
+    res.status(500).json({ error: error.message || "Gagal menghapus responden" });
+  }
+});
+
+// --- API DELETE ALL RESPONDENTS / RESET ALL EVALUATIONS ---
+app.post("/api/respondents/reset-all", async (req, res) => {
+  try {
+    // Delete all rows in evaluation_results first and then participants
+    await db.delete(schema.evaluationResults);
+    await db.delete(schema.participants);
+    res.json({ success: true, message: "Semua hasil penilaian dan data responden berhasil dihapus. Sistem kini bersih!" });
+  } catch (error: any) {
+    console.error("Error POST /api/respondents/reset-all:", error);
+    res.status(500).json({ error: error.message || "Gagal membersihkan data penilaian" });
+  }
+});
+
 // Configure Vite or Serve SPA statically
 async function start() {
   if (process.env.NODE_ENV !== "production") {
