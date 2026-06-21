@@ -283,9 +283,64 @@ export default function App() {
   const getQuestionIndicatorColor = (questionId: number) => {
     const score = ratings[questionId];
     if (!score) return "text-slate-400 font-semibold";
-    if (score <= 2) return "text-rose-600 font-extrabold";
-    if (score === 3) return "text-amber-500 font-extrabold";
-    return "text-green-600 font-extrabold";
+    if (score === 1) return "text-rose-600 font-black";
+    if (score === 2) return "text-orange-500 font-black";
+    if (score === 3) return "text-amber-500 font-black";
+    if (score === 4) return "text-emerald-500 font-black";
+    if (score === 5) return "text-teal-600 font-black";
+    return "";
+  };
+
+  const getQuestionContainerBg = (questionId: number) => {
+    const score = ratings[questionId];
+    if (!score) return "bg-slate-50/70 border-slate-200/80";
+    if (score === 1) return "bg-rose-50/40 border-rose-200 shadow-3xs";
+    if (score === 2) return "bg-orange-50/40 border-orange-200 shadow-3xs";
+    if (score === 3) return "bg-amber-50/40 border-amber-200 shadow-3xs";
+    if (score === 4) return "bg-emerald-50/40 border-emerald-200 shadow-3xs";
+    if (score === 5) return "bg-teal-50/40 border-teal-200 shadow-3xs";
+    return "bg-slate-50 border-slate-200";
+  };
+
+  const getScoreButtonClass = (score: number, isSelected: boolean) => {
+    if (isSelected) {
+      if (score === 1) return "bg-rose-600 border-rose-700 text-white shadow-md scale-[1.03] font-black ring-2 ring-rose-100";
+      if (score === 2) return "bg-orange-500 border-orange-600 text-white shadow-md scale-[1.03] font-black ring-2 ring-orange-100";
+      if (score === 3) return "bg-amber-500 border-amber-600 text-white shadow-md scale-[1.03] font-black ring-2 ring-amber-100";
+      if (score === 4) return "bg-emerald-600 border-emerald-700 text-white shadow-md scale-[1.03] font-black ring-2 ring-emerald-100";
+      if (score === 5) return "bg-teal-600 border-teal-700 text-white shadow-md scale-[1.03] font-black ring-2 ring-teal-100";
+    }
+    return "bg-white border-slate-200 text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 font-extrabold shadow-3xs hover:border-slate-350";
+  };
+
+  const getInternalContainerBg = (selectedVal: number | null) => {
+    if (selectedVal === null) return "bg-slate-50/70 border-slate-200/80";
+    if (selectedVal === 1) return "bg-rose-50/40 border-rose-200 shadow-3xs";
+    if (selectedVal === 2) return "bg-orange-50/40 border-orange-200 shadow-3xs";
+    if (selectedVal === 3) return "bg-amber-50/40 border-amber-200 shadow-3xs";
+    if (selectedVal === 4) return "bg-emerald-50/40 border-emerald-200 shadow-3xs";
+    if (selectedVal === 5) return "bg-teal-50/40 border-teal-200 shadow-3xs";
+    return "bg-slate-50 border-slate-200";
+  };
+
+  const getInternalIndicatorText = (val: number | null) => {
+    if (val === null) return "Belum Dinilai";
+    if (val === 1) return "Sangat Buruk";
+    if (val === 2) return "Buruk";
+    if (val === 3) return "Cukup";
+    if (val === 4) return "Baik";
+    if (val === 5) return "Sangat Baik";
+    return "";
+  };
+
+  const getInternalIndicatorColorClass = (val: number | null) => {
+    if (val === null) return "text-slate-400 font-semibold";
+    if (val === 1) return "text-rose-600 font-black";
+    if (val === 2) return "text-orange-500 font-black";
+    if (val === 3) return "text-amber-500 font-black";
+    if (val === 4) return "text-emerald-500 font-black";
+    if (val === 5) return "text-teal-600 font-black";
+    return "";
   };
 
   // Admin Dashboard States
@@ -3661,28 +3716,31 @@ export default function App() {
                 )}
 
                 {/* Question 1 */}
-                <div className="space-y-3" id="q_internal_1">
-                  <div className="flex items-start gap-2.5">
-                    <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-2 py-0.5 rounded-md mt-0.5">1</span>
-                    <label className="text-slate-900 text-xs font-black leading-relaxed">
-                      PLANNING KEGIATAN <span className="text-rose-500">*</span>
-                      <p className="text-slate-500 font-medium mt-1 leading-relaxed">
-                        Bagaimana penilaian Anda terhadap kesiapan dan perencanaan kegiatan Pengawasan Partisipatif Tahun 2026 yang dilaksanakan pada tanggal 20 Juni 2026 (penyusunan rencana, jadwal, dan persiapan teknis)?
-                      </p>
-                    </label>
+                <div className={`p-5 rounded-2xl border transition-all duration-300 space-y-4 ${getInternalContainerBg(internalPlanning)}`} id="q_internal_1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5">
+                      <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-2 py-0.5 rounded-md mt-0.5">1</span>
+                      <label className="text-slate-900 text-xs font-black leading-relaxed">
+                        PLANNING KEGIATAN <span className="text-rose-500">*</span>
+                        <p className="text-slate-500 font-medium mt-1 leading-relaxed">
+                          Bagaimana penilaian Anda terhadap kesiapan dan perencanaan kegiatan Pengawasan Partisipatif Tahun 2026 yang dilaksanakan pada tanggal 20 Juni 2026 (penyusunan rencana, jadwal, dan persiapan teknis)?
+                        </p>
+                      </label>
+                    </div>
+                    {internalPlanning !== null && (
+                      <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border bg-white shadow-3xs self-start shrink-0 hidden sm:inline-block ${getInternalIndicatorColorClass(internalPlanning)}`}>
+                        {getInternalIndicatorText(internalPlanning)}
+                      </span>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-5 gap-2 pt-2" id="q1_options">
+                  <div className="grid grid-cols-5 gap-2 pt-1" id="q1_options">
                     {[1, 2, 3, 4, 5].map(score => (
                       <button
                         key={score}
                         type="button"
                         onClick={() => setInternalPlanning(score)}
-                        className={`py-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
-                          internalPlanning === score
-                            ? "bg-rose-600 border-rose-600 text-white shadow-sm font-black"
-                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
-                        }`}
+                        className={`py-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${getScoreButtonClass(score, internalPlanning === score)}`}
                       >
                         <span className="text-sm">{score}</span>
                         <span className="text-[8px] uppercase tracking-wider hidden sm:inline">
@@ -3695,44 +3753,41 @@ export default function App() {
                       </button>
                     ))}
                   </div>
-                  {internalPlanning && (
-                    <div className="sm:hidden text-center w-full mt-1.5 animate-fadeIn">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-50 border border-rose-200 text-rose-700 px-2.5 py-1 rounded-md inline-block shadow-3xs">
-                        Pilihan: {
-                          internalPlanning === 1 && "Sangat Buruk" ||
-                          internalPlanning === 2 && "Buruk" ||
-                          internalPlanning === 3 && "Cukup" ||
-                          internalPlanning === 4 && "Baik" ||
-                          internalPlanning === 5 && "Sangat Baik"
-                        }
+                  {internalPlanning !== null && (
+                    <div className="text-center w-full mt-1.5 animate-fadeIn">
+                      <span className={`text-[10px] font-extrabold uppercase tracking-wider bg-white border px-3 py-1 rounded-full inline-block shadow-3xs ${getInternalIndicatorColorClass(internalPlanning)}`}>
+                        Pilihan: {getInternalIndicatorText(internalPlanning)}
                       </span>
                     </div>
                   )}
                 </div>
 
                 {/* Question 2 */}
-                <div className="space-y-3" id="q_internal_2">
-                  <div className="flex items-start gap-2.5">
-                    <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-2 py-0.5 rounded-md mt-0.5">2</span>
-                    <label className="text-slate-900 text-xs font-black leading-relaxed">
-                      PELAKSANAAN KEGIATAN <span className="text-rose-500">*</span>
-                      <p className="text-slate-500 font-medium mt-1 leading-relaxed">
-                        Bagaimana penilaian Anda terhadap pelaksanaan kegiatan secara keseluruhan (kelancaran acara, ketepatan waktu, dan kesesuaian dengan rencana kegiatan yang akan dilakukan?
-                      </p>
-                    </label>
+                <div className={`p-5 rounded-2xl border transition-all duration-300 space-y-4 ${getInternalContainerBg(internalPelaksanaan)}`} id="q_internal_2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5">
+                      <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-2 py-0.5 rounded-md mt-0.5">2</span>
+                      <label className="text-slate-900 text-xs font-black leading-relaxed">
+                        PELAKSANAAN KEGIATAN <span className="text-rose-500">*</span>
+                        <p className="text-slate-500 font-medium mt-1 leading-relaxed">
+                          Bagaimana penilaian Anda terhadap pelaksanaan kegiatan secara keseluruhan (kelancaran acara, ketepatan waktu, dan kesesuaian dengan rencana kegiatan yang akan dilakukan?
+                        </p>
+                      </label>
+                    </div>
+                    {internalPelaksanaan !== null && (
+                      <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border bg-white shadow-3xs self-start shrink-0 hidden sm:inline-block ${getInternalIndicatorColorClass(internalPelaksanaan)}`}>
+                        {getInternalIndicatorText(internalPelaksanaan)}
+                      </span>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-5 gap-2 pt-2" id="q2_options">
+                  <div className="grid grid-cols-5 gap-2 pt-1" id="q2_options">
                     {[1, 2, 3, 4, 5].map(score => (
                       <button
                         key={score}
                         type="button"
                         onClick={() => setInternalPelaksanaan(score)}
-                        className={`py-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
-                          internalPelaksanaan === score
-                            ? "bg-rose-600 border-rose-600 text-white shadow-sm font-black"
-                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
-                        }`}
+                        className={`py-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${getScoreButtonClass(score, internalPelaksanaan === score)}`}
                       >
                         <span className="text-sm">{score}</span>
                         <span className="text-[8px] uppercase tracking-wider hidden sm:inline">
@@ -3745,44 +3800,41 @@ export default function App() {
                       </button>
                     ))}
                   </div>
-                  {internalPelaksanaan && (
-                    <div className="sm:hidden text-center w-full mt-1.5 animate-fadeIn">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-50 border border-rose-200 text-rose-700 px-2.5 py-1 rounded-md inline-block shadow-3xs">
-                        Pilihan: {
-                          internalPelaksanaan === 1 && "Sangat Buruk" ||
-                          internalPelaksanaan === 2 && "Buruk" ||
-                          internalPelaksanaan === 3 && "Cukup" ||
-                          internalPelaksanaan === 4 && "Baik" ||
-                          internalPelaksanaan === 5 && "Sangat Baik"
-                        }
+                  {internalPelaksanaan !== null && (
+                    <div className="text-center w-full mt-1.5 animate-fadeIn">
+                      <span className={`text-[10px] font-extrabold uppercase tracking-wider bg-white border px-3 py-1 rounded-full inline-block shadow-3xs ${getInternalIndicatorColorClass(internalPelaksanaan)}`}>
+                        Pilihan: {getInternalIndicatorText(internalPelaksanaan)}
                       </span>
                     </div>
                   )}
                 </div>
 
                 {/* Question 3 */}
-                <div className="space-y-3" id="q_internal_3">
-                  <div className="flex items-start gap-2.5">
-                    <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-2 py-0.5 rounded-md mt-0.5">3</span>
-                    <label className="text-slate-900 text-xs font-black leading-relaxed">
-                      PARTISIPASI DALAM PELAKSANAAN <span className="text-rose-500">*</span>
-                      <p className="text-slate-500 font-medium mt-1 leading-relaxed">
-                        Bagaimana penilaian Anda terhadap partisipasi masing-masing selama kegiatan berlangsung?
-                      </p>
-                    </label>
+                <div className={`p-5 rounded-2xl border transition-all duration-300 space-y-4 ${getInternalContainerBg(internalPartisipasi)}`} id="q_internal_3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5">
+                      <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-2 py-0.5 rounded-md mt-0.5">3</span>
+                      <label className="text-slate-950 text-xs font-black leading-relaxed">
+                        PARTISIPASI DALAM PELAKSANAAN <span className="text-rose-500">*</span>
+                        <p className="text-slate-500 font-medium mt-1 leading-relaxed">
+                          Bagaimana penilaian Anda terhadap partisipasi masing-masing pelaksana selama kegiatan berlangsung?
+                        </p>
+                      </label>
+                    </div>
+                    {internalPartisipasi !== null && (
+                      <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border bg-white shadow-3xs self-start shrink-0 hidden sm:inline-block ${getInternalIndicatorColorClass(internalPartisipasi)}`}>
+                        {getInternalIndicatorText(internalPartisipasi)}
+                      </span>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-5 gap-2 pt-2" id="q3_options">
+                  <div className="grid grid-cols-5 gap-2 pt-1" id="q3_options">
                     {[1, 2, 3, 4, 5].map(score => (
                       <button
                         key={score}
                         type="button"
                         onClick={() => setInternalPartisipasi(score)}
-                        className={`py-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
-                          internalPartisipasi === score
-                            ? "bg-rose-600 border-rose-600 text-white shadow-sm font-black"
-                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
-                        }`}
+                        className={`py-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${getScoreButtonClass(score, internalPartisipasi === score)}`}
                       >
                         <span className="text-sm">{score}</span>
                         <span className="text-[8px] uppercase tracking-wider hidden sm:inline">
@@ -3795,44 +3847,41 @@ export default function App() {
                       </button>
                     ))}
                   </div>
-                  {internalPartisipasi && (
-                    <div className="sm:hidden text-center w-full mt-1.5 animate-fadeIn">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-50 border border-rose-200 text-rose-700 px-2.5 py-1 rounded-md inline-block shadow-3xs">
-                        Pilihan: {
-                          internalPartisipasi === 1 && "Sangat Buruk" ||
-                          internalPartisipasi === 2 && "Buruk" ||
-                          internalPartisipasi === 3 && "Cukup" ||
-                          internalPartisipasi === 4 && "Baik" ||
-                          internalPartisipasi === 5 && "Sangat Baik"
-                        }
+                  {internalPartisipasi !== null && (
+                    <div className="text-center w-full mt-1.5 animate-fadeIn">
+                      <span className={`text-[10px] font-extrabold uppercase tracking-wider bg-white border px-3 py-1 rounded-full inline-block shadow-3xs ${getInternalIndicatorColorClass(internalPartisipasi)}`}>
+                        Pilihan: {getInternalIndicatorText(internalPartisipasi)}
                       </span>
                     </div>
                   )}
                 </div>
 
                 {/* Question 4 */}
-                <div className="space-y-3" id="q_internal_4">
-                  <div className="flex items-start gap-2.5">
-                    <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-2 py-0.5 rounded-md mt-0.5">4</span>
-                    <label className="text-slate-900 text-xs font-black leading-relaxed">
-                      TANGGUNG JAWAB ATAS PENUGASAN <span className="text-rose-500">*</span>
-                      <p className="text-slate-500 font-medium mt-1 leading-relaxed">
-                        Bagaimana penilaian Anda terhadap tanggung jawab masing-masing pelaksana atas tugas yang diberikan?
-                      </p>
-                    </label>
+                <div className={`p-5 rounded-2xl border transition-all duration-300 space-y-4 ${getInternalContainerBg(internalTanggungJawab)}`} id="q_internal_4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5">
+                      <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-2 py-0.5 rounded-md mt-0.5">4</span>
+                      <label className="text-slate-900 text-xs font-black leading-relaxed">
+                        TANGGUNG JAWAB ATAS PENUGASAN <span className="text-rose-500">*</span>
+                        <p className="text-slate-500 font-medium mt-1 leading-relaxed">
+                          Bagaimana penilaian Anda terhadap tanggung jawab masing-masing pelaksana atas tugas yang diberikan?
+                        </p>
+                      </label>
+                    </div>
+                    {internalTanggungJawab !== null && (
+                      <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md border bg-white shadow-3xs self-start shrink-0 hidden sm:inline-block ${getInternalIndicatorColorClass(internalTanggungJawab)}`}>
+                        {getInternalIndicatorText(internalTanggungJawab)}
+                      </span>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-5 gap-2 pt-2" id="q4_options">
+                  <div className="grid grid-cols-5 gap-2 pt-1" id="q4_options">
                     {[1, 2, 3, 4, 5].map(score => (
                       <button
                         key={score}
                         type="button"
                         onClick={() => setInternalTanggungJawab(score)}
-                        className={`py-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
-                          internalTanggungJawab === score
-                            ? "bg-rose-600 border-rose-600 text-white shadow-sm font-black"
-                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
-                        }`}
+                        className={`py-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${getScoreButtonClass(score, internalTanggungJawab === score)}`}
                       >
                         <span className="text-sm">{score}</span>
                         <span className="text-[8px] uppercase tracking-wider hidden sm:inline">
@@ -3845,23 +3894,17 @@ export default function App() {
                       </button>
                     ))}
                   </div>
-                  {internalTanggungJawab && (
-                    <div className="sm:hidden text-center w-full mt-1.5 animate-fadeIn">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-50 border border-rose-200 text-rose-700 px-2.5 py-1 rounded-md inline-block shadow-3xs">
-                        Pilihan: {
-                          internalTanggungJawab === 1 && "Sangat Buruk" ||
-                          internalTanggungJawab === 2 && "Buruk" ||
-                          internalTanggungJawab === 3 && "Cukup" ||
-                          internalTanggungJawab === 4 && "Baik" ||
-                          internalTanggungJawab === 5 && "Sangat Baik"
-                        }
+                  {internalTanggungJawab !== null && (
+                    <div className="text-center w-full mt-1.5 animate-fadeIn">
+                      <span className={`text-[10px] font-extrabold uppercase tracking-wider bg-white border px-3 py-1 rounded-full inline-block shadow-3xs ${getInternalIndicatorColorClass(internalTanggungJawab)}`}>
+                        Pilihan: {getInternalIndicatorText(internalTanggungJawab)}
                       </span>
                     </div>
                   )}
                 </div>
 
                 {/* Question 5 */}
-                <div className="space-y-3" id="q_internal_5">
+                <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50/40 space-y-3" id="q_internal_5 font-semibold">
                   <div className="flex items-start gap-2.5">
                     <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-2 py-0.5 rounded-md mt-0.5">5</span>
                     <label className="text-slate-900 text-xs font-black leading-relaxed block">
@@ -3878,7 +3921,7 @@ export default function App() {
                       value={internalSaran}
                       onChange={e => setInternalSaran(e.target.value)}
                       placeholder="Tulis kritik konstruktif, saran, masukan perbaikan teknis atau penugasan di sini... (Wajib)"
-                      className="w-full text-slate-800 text-xs px-4 py-3 border border-slate-250 rounded-xl focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 bg-slate-50/50"
+                      className="w-full text-slate-800 text-xs px-4 py-3 border border-slate-250 rounded-xl focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 bg-white transition-all shadow-3xs"
                     />
                   </div>
                 </div>
@@ -4137,7 +4180,7 @@ export default function App() {
                               </div>
 
                               {/* LIKERT RADIO INPUT SECTOR */}
-                              <div className="flex flex-col gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200" id={`likert_selector_${q.id}`}>
+                              <div className={`flex flex-col gap-2 p-2.5 rounded-xl border transition-all duration-300 ${getQuestionContainerBg(q.id)}`} id={`likert_selector_${q.id}`}>
                                 <div className="flex justify-between items-center gap-2 w-full">
                                   <div className="flex justify-around items-center gap-1.5 mx-auto sm:mx-0">
                                     {[1, 2, 3, 4, 5].map((score) => (
@@ -4145,13 +4188,7 @@ export default function App() {
                                         key={score}
                                         type="button"
                                         onClick={() => handleRatingSelect(q.id, score)}
-                                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex flex-col items-center justify-center border font-black text-xs transition-all cursor-pointer ${
-                                          ratings[q.id] === score
-                                            ? "bg-blue-600 border-blue-700 text-white shadow-sm scale-105"
-                                            : "/1/2/3".includes(score.toString())
-                                              ? "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                        }`}
+                                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex flex-col items-center justify-center border text-xs transition-with-scale cursor-pointer ${getScoreButtonClass(score, ratings[q.id] === score)}`}
                                         id={`btn_score_${q.id}_${score}`}
                                       >
                                         <span>{score}</span>
@@ -4220,7 +4257,7 @@ export default function App() {
                               </div>
 
                               {/* LIKERT RADIO INPUT SECTOR */}
-                              <div className="flex flex-col gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200" id={`likert_selector_${q.id}`}>
+                              <div className={`flex flex-col gap-2 p-2.5 rounded-xl border transition-all duration-300 ${getQuestionContainerBg(q.id)}`} id={`likert_selector_${q.id}`}>
                                 <div className="flex justify-between items-center gap-2 w-full">
                                   <div className="flex justify-around items-center gap-1.5 mx-auto sm:mx-0">
                                     {[1, 2, 3, 4, 5].map((score) => (
@@ -4228,13 +4265,7 @@ export default function App() {
                                         key={score}
                                         type="button"
                                         onClick={() => handleRatingSelect(q.id, score)}
-                                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex flex-col items-center justify-center border font-black text-xs transition-all cursor-pointer ${
-                                          ratings[q.id] === score
-                                            ? "bg-indigo-600 border-indigo-700 text-white shadow-sm scale-105"
-                                            : "/1/2/3".includes(score.toString())
-                                              ? "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                        }`}
+                                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex flex-col items-center justify-center border text-xs transition-with-scale cursor-pointer ${getScoreButtonClass(score, ratings[q.id] === score)}`}
                                         id={`btn_score_${q.id}_${score}`}
                                       >
                                         <span>{score}</span>
@@ -4303,7 +4334,7 @@ export default function App() {
                               </div>
 
                               {/* LIKERT RADIO INPUT SECTOR */}
-                              <div className="flex flex-col gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200" id={`likert_selector_${q.id}`}>
+                              <div className={`flex flex-col gap-2 p-2.5 rounded-xl border transition-all duration-300 ${getQuestionContainerBg(q.id)}`} id={`likert_selector_${q.id}`}>
                                 <div className="flex justify-between items-center gap-2 w-full">
                                   <div className="flex justify-around items-center gap-1.5 mx-auto sm:mx-0">
                                     {[1, 2, 3, 4, 5].map((score) => (
@@ -4311,13 +4342,7 @@ export default function App() {
                                         key={score}
                                         type="button"
                                         onClick={() => handleRatingSelect(q.id, score)}
-                                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex flex-col items-center justify-center border font-black text-xs transition-all cursor-pointer ${
-                                          ratings[q.id] === score
-                                            ? "bg-amber-600 border-amber-700 text-white shadow-sm scale-105"
-                                            : "/1/2/3".includes(score.toString())
-                                              ? "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                        }`}
+                                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex flex-col items-center justify-center border text-xs transition-with-scale cursor-pointer ${getScoreButtonClass(score, ratings[q.id] === score)}`}
                                         id={`btn_score_${q.id}_${score}`}
                                       >
                                         <span>{score}</span>
@@ -4386,7 +4411,7 @@ export default function App() {
                               </div>
 
                               {/* LIKERT RADIO INPUT SECTOR */}
-                              <div className="flex flex-col gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200" id={`likert_selector_${q.id}`}>
+                              <div className={`flex flex-col gap-2 p-2.5 rounded-xl border transition-all duration-300 ${getQuestionContainerBg(q.id)}`} id={`likert_selector_${q.id}`}>
                                 <div className="flex justify-between items-center gap-2 w-full">
                                   <div className="flex justify-around items-center gap-1.5 mx-auto sm:mx-0">
                                     {[1, 2, 3, 4, 5].map((score) => (
@@ -4394,13 +4419,7 @@ export default function App() {
                                         key={score}
                                         type="button"
                                         onClick={() => handleRatingSelect(q.id, score)}
-                                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex flex-col items-center justify-center border font-black text-xs transition-all cursor-pointer ${
-                                          ratings[q.id] === score
-                                            ? "bg-teal-600 border-teal-700 text-white shadow-sm scale-105"
-                                            : "/1/2/3".includes(score.toString())
-                                              ? "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                        }`}
+                                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex flex-col items-center justify-center border text-xs transition-with-scale cursor-pointer ${getScoreButtonClass(score, ratings[q.id] === score)}`}
                                         id={`btn_score_${q.id}_${score}`}
                                       >
                                         <span>{score}</span>
