@@ -140,3 +140,15 @@ export const adminUsers = pgTable("admin_users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// 9. Internal Evaluations (internal_evaluations)
+export const internalEvaluations = pgTable("internal_evaluations", {
+  id: serial("id").primaryKey(),
+  planningScore: integer("planning_score").notNull(),
+  pelaksanaanScore: integer("pelaksanaan_score").notNull(),
+  partisipasiScore: integer("partisipasi_score").notNull(),
+  tanggungJawabScore: integer("tanggung_jawab_score").notNull(),
+  saran: text("saran"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+

@@ -134,6 +134,16 @@ export async function initializeDatabase() {
         "full_name" TEXT NOT NULL,
         "created_at" TIMESTAMP DEFAULT now() NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS "internal_evaluations" (
+        "id" SERIAL PRIMARY KEY,
+        "planning_score" INTEGER NOT NULL,
+        "pelaksanaan_score" INTEGER NOT NULL,
+        "partisipasi_score" INTEGER NOT NULL,
+        "tanggung_jawab_score" INTEGER NOT NULL,
+        "saran" TEXT,
+        "created_at" TIMESTAMP DEFAULT now() NOT NULL
+      );
     `);
     console.log("DDL Migrasi Sukses / Seluruh tabel Bawaslu tersedia.");
 

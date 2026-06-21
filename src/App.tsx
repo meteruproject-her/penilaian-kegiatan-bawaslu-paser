@@ -157,14 +157,46 @@ const KEGIATAN_ASPECTS = [
   { id: 20, label: "U-3", desc: "Gairah Kepuasan Menyeluruh atas Diklat" },
 ];
 
+const CustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-white border border-slate-200 p-3 rounded-xl shadow-lg space-y-2 text-xs max-w-xs sm:max-w-sm">
+        <p className="font-extrabold text-slate-850 leading-snug border-b border-slate-100 pb-1">{data.fullName}</p>
+        <div className="space-y-1 text-slate-600 font-medium">
+          <p>🧑‍🏫 <span className="font-bold text-slate-700">Pemateri:</span> {data.pemateriName}</p>
+          <p>🗣️ <span className="font-bold text-slate-700">Fasilitator:</span> {data.fasilitatorName}</p>
+        </div>
+        <div className="pt-1.5 border-t border-slate-100 flex flex-col gap-0.5 font-bold">
+          <div className="flex justify-between gap-4 text-blue-600">
+            <span>Rata-Rata Pemateri:</span>
+            <span>{data.Pemateri ? Number(data.Pemateri).toFixed(2) : "0.00"}</span>
+          </div>
+          <div className="flex justify-between gap-4 text-indigo-600">
+            <span>Rata-Rata Fasilitator:</span>
+            <span>{data.Fasilitator ? Number(data.Fasilitator).toFixed(2) : "0.00"}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function App() {
   // Navigation & Role States
   const [currentPath, setCurrentPath] = useState<string>(() => {
-    return window.location.pathname === "/admin" ? "/admin" : "/penilaian";
+    const p = window.location.pathname;
+    if (p === "/admin") return "/admin";
+    if (p === "/evaluasi") return "/evaluasi";
+    return "/penilaian";
   });
   const isAdminMode = currentPath === "/admin";
   const [activeTab, setActiveTab] = useState<string>(() => {
-    return window.location.pathname === "/admin" ? "dashboard" : "feedback";
+    const p = window.location.pathname;
+    if (p === "/admin") return "dashboard";
+    if (p === "/evaluasi") return "evaluasi";
+    return "feedback";
   });
   const [isAdminLogged, setIsAdminLogged] = useState<boolean>(() => {
     return !!localStorage.getItem("bawaslu_token");
@@ -176,6 +208,8 @@ export default function App() {
     setCurrentPath(path);
     if (path === "/admin") {
       setActiveTab("dashboard");
+    } else if (path === "/evaluasi") {
+      setActiveTab("evaluasi");
     } else {
       setActiveTab("feedback");
     }
@@ -183,10 +217,13 @@ export default function App() {
 
   useEffect(() => {
     const handlePopState = () => {
-      const p = window.location.pathname === "/admin" ? "/admin" : "/penilaian";
-      setCurrentPath(p);
-      if (p === "/admin") {
+      const p = window.location.pathname;
+      const path = p === "/admin" ? "/admin" : (p === "/evaluasi" ? "/evaluasi" : "/penilaian");
+      setCurrentPath(path);
+      if (path === "/admin") {
         setActiveTab("dashboard");
+      } else if (path === "/evaluasi") {
+        setActiveTab("evaluasi");
       } else {
         setActiveTab("feedback");
       }
@@ -221,6 +258,16 @@ export default function App() {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
+
+  // State for /evaluasi internal form
+  const [internalPlanning, setInternalPlanning] = useState<number | null>(null);
+  const [internalPelaksanaan, setInternalPelaksanaan] = useState<number | null>(null);
+  const [internalPartisipasi, setInternalPartisipasi] = useState<number | null>(null);
+  const [internalTanggungJawab, setInternalTanggungJawab] = useState<number | null>(null);
+  const [internalSaran, setInternalSaran] = useState<string>("");
+  const [internalSubmitting, setInternalSubmitting] = useState<boolean>(false);
+  const [internalSuccess, setInternalSuccess] = useState<boolean>(false);
+  const [internalError, setInternalError] = useState<string>("");
 
   const getQuestionIndicatorText = (questionId: number) => {
     const score = ratings[questionId];
@@ -269,6 +316,24 @@ export default function App() {
   const [detailRespondents, setDetailRespondents] = useState<any[]>([]);
   const [detailActiveCategory, setDetailActiveCategory] = useState<'A' | 'B' | 'C' | 'D'>('A');
   const [detailSearchQuery, setDetailSearchQuery] = useState("");
+  const [detailPemateriFilter, setDetailPemateriFilter] = useState("");
+  const [detailFasilitatorFilter, setDetailFasilitatorFilter] = useState("");
+
+  // States for internal evaluations view in Admin Dashboards
+  const [internalEvaluations, setInternalEvaluations] = useState<any[]>([]);
+  const [internalEvalStats, setInternalEvalStats] = useState<{
+    total: number;
+    avgPlanning: number;
+    avgPelaksanaan: number;
+    avgPartisipasi: number;
+    avgTanggungJawab: number;
+  }>({
+    total: 0,
+    avgPlanning: 0,
+    avgPelaksanaan: 0,
+    avgPartisipasi: 0,
+    avgTanggungJawab: 0,
+  });
 
   // Granular Sub-Dashboard navigation & filters
   const [activeSubTab, setActiveSubTab] = useState<string>("perbandingan");
@@ -418,7 +483,7 @@ export default function App() {
   const fetchAdminData = async () => {
     setLoadingAdminData(true);
     try {
-      const [rekapRes, feedbackRes, sessionRes, questRes, pesertaRes, kegRes, adminRes, respondentsRes] = await Promise.all([
+      const [rekapRes, feedbackRes, sessionRes, questRes, pesertaRes, kegRes, adminRes, respondentsRes, internalRes] = await Promise.all([
         fetch("/api/rekap"),
         fetch("/api/feedbacks"),
         fetch("/api/sessions"),
@@ -426,7 +491,8 @@ export default function App() {
         fetch("/api/peserta"),
         fetch("/api/kegiatan"),
         fetch("/api/admin/users"),
-        fetch("/api/respondents-detail")
+        fetch("/api/respondents-detail"),
+        fetch("/api/internal-eval")
       ]);
 
       if (rekapRes.ok) setRekap(await rekapRes.json());
@@ -439,6 +505,17 @@ export default function App() {
         const detailData = await respondentsRes.json();
         setDetailAspects(detailData.aspects || []);
         setDetailRespondents(detailData.respondents || []);
+      }
+      if (internalRes && internalRes.ok) {
+        const internalData = await internalRes.json();
+        setInternalEvaluations(internalData.data || []);
+        setInternalEvalStats(internalData.stats || {
+          total: 0,
+          avgPlanning: 0,
+          avgPelaksanaan: 0,
+          avgPartisipasi: 0,
+          avgTanggungJawab: 0
+        });
       }
       if (kegRes.ok) {
         const kegData = await kegRes.json();
@@ -780,6 +857,105 @@ export default function App() {
     );
   };
 
+  const handleSubmitInternalEval = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (
+      internalPlanning === null ||
+      internalPelaksanaan === null ||
+      internalPartisipasi === null ||
+      internalTanggungJawab === null
+    ) {
+      setInternalError("Mohon pilih nilai (1 - 5) untuk keempat aspek penilaian.");
+      showToast("Mohon lengkapi semua penilaian pilihan ganda.", "error");
+      return;
+    }
+
+    setInternalSubmitting(true);
+    setInternalError("");
+
+    try {
+      const response = await fetch("/api/internal-eval", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planning_score: internalPlanning,
+          pelaksanaan_score: internalPelaksanaan,
+          partisipasi_score: internalPartisipasi,
+          tanggung_jawab_score: internalTanggungJawab,
+          saran: internalSaran,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setInternalSuccess(true);
+        showToast("Formulir penilaian internal berhasil dikirimkan!", "success");
+        // Reset states
+        setInternalPlanning(null);
+        setInternalPelaksanaan(null);
+        setInternalPartisipasi(null);
+        setInternalTanggungJawab(null);
+        setInternalSaran("");
+      } else {
+        setInternalError(data.error || "Gagal mengirimkan formulir.");
+        showToast(data.error || "Gagal mengirimkan formulir.", "error");
+      }
+    } catch (error: any) {
+      setInternalError(error.message || "Terjadi kesalahan pada jaringan.");
+      showToast(error.message || "Jaringan bermasalah.", "error");
+    } finally {
+      setInternalSubmitting(false);
+    }
+  };
+
+  const handleDeleteInternalEval = (id: number) => {
+    triggerConfirm(
+      "Hapus Evaluasi Internal",
+      `Apakah Anda yakin ingin menghapus respon evaluasi internal No. #${id}? Tindakan ini bersifat permanen.`,
+      async () => {
+        try {
+          const res = await fetch(`/api/internal-eval/${id}`, {
+            method: "DELETE",
+          });
+          if (res.ok) {
+            showToast("Sukses menghapus respon evaluasi internal.", "success");
+            fetchAdminData();
+          } else {
+            const data = await res.json();
+            showToast(data.error || "Gagal menghapus", "error");
+          }
+        } catch (e: any) {
+          showToast(e.message || "Gagal menghapus", "error");
+        }
+      },
+      { confirmText: "Ya, Hapus", isDanger: true }
+    );
+  };
+
+  const handleResetInternalEvals = () => {
+    triggerConfirm(
+      "RESET EVALUASI INTERNAL",
+      "Apakah Anda yakin ingin menghapus seluruh data evaluasi internal? Tindakan ini bersifat permanen dan tidak dapat dibatalkan.",
+      async () => {
+        try {
+          const res = await fetch("/api/internal-eval/reset-all", {
+            method: "POST",
+          });
+          if (res.ok) {
+            showToast("Semua evaluasi internal berhasil dibersihkan!", "success");
+            fetchAdminData();
+          } else {
+            const data = await res.json();
+            showToast(data.error || "Gagal membersihkan", "error");
+          }
+        } catch (e: any) {
+          showToast(e.message || "Gagal membersihkan", "error");
+        }
+      },
+      { confirmText: "Ya, Kosongkan", isDanger: true }
+    );
+  };
+
   // Centralized Live Control
   const handleToggleSession = async (sessId: number, isCurrentlyActive: boolean) => {
     const act = isCurrentlyActive ? "Nonaktifkan" : "Aktifkan";
@@ -1005,9 +1181,23 @@ export default function App() {
     const q = detailSearchQuery.trim().toLowerCase();
     const catAspects = detailAspects.filter(a => a.kategori === detailActiveCategory);
 
+    const uniquePemateriList = Array.from(new Set(detailRespondents.map(r => r.nama_pemateri).filter(Boolean))) as string[];
+    const uniqueFasilitatorList = Array.from(new Set(detailRespondents.map(r => r.nama_fasilitator).filter(Boolean))) as string[];
+
     const filtered = detailRespondents.filter(r => {
       const matchesSearch = !q ? true : (r.nama_peserta.toLowerCase().includes(q) || r.asal_instansi.toLowerCase().includes(q));
       if (!matchesSearch) return false;
+
+      // Filter by aspects category
+      if (detailActiveCategory === 'A') {
+        if (detailPemateriFilter && r.nama_pemateri !== detailPemateriFilter) {
+          return false;
+        }
+      } else if (detailActiveCategory === 'B') {
+        if (detailFasilitatorFilter && r.nama_fasilitator !== detailFasilitatorFilter) {
+          return false;
+        }
+      }
 
       // Panitia (C) and Kegiatan (D) specific check: Filter out empty score responses
       if (detailActiveCategory === 'C' || detailActiveCategory === 'D') {
@@ -1157,21 +1347,55 @@ export default function App() {
         </div>
 
         {/* SEARCH & REKAP BAR */}
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col sm:flex-row gap-3 items-center justify-between shadow-2xs">
-          <div className="relative w-full sm:w-80">
-            <input
-              type="text"
-              placeholder="Cari nama peserta atau instansi..."
-              value={detailSearchQuery}
-              className="w-full text-xs px-3 py-1.5 pl-8 bg-white border border-slate-250 rounded-lg focus:outline-none focus:border-blue-500 text-slate-800"
-              onChange={(e) => setDetailSearchQuery(e.target.value)}
-            />
-            <div className="absolute left-2.5 top-2.5 text-slate-400 text-[10px]">
-              🔍
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col md:flex-row gap-3 items-center justify-between shadow-xs">
+          <div className="flex flex-col sm:flex-row gap-2.5 w-full md:w-auto items-stretch sm:items-center">
+            <div className="relative w-full sm:w-64">
+              <input
+                type="text"
+                placeholder="Cari nama peserta atau instansi..."
+                value={detailSearchQuery}
+                className="w-full text-xs px-3 py-1.5 pl-8 bg-white border border-slate-250 rounded-lg focus:outline-none focus:border-blue-500 text-slate-800 font-medium"
+                onChange={(e) => setDetailSearchQuery(e.target.value)}
+              />
+              <div className="absolute left-2.5 top-[9px] text-slate-400 text-[10px]">
+                🔍
+              </div>
             </div>
+
+            {/* Filter Pemateri */}
+            {detailActiveCategory === 'A' && (
+              <div className="w-full sm:w-52">
+                <select
+                  value={detailPemateriFilter}
+                  onChange={(e) => setDetailPemateriFilter(e.target.value)}
+                  className="w-full text-xs px-2 py-1.5 bg-white border border-slate-250 rounded-lg text-slate-700 font-bold focus:outline-none focus:border-blue-500"
+                >
+                  <option value="">Semua Pemateri (Filter)</option>
+                  {uniquePemateriList.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Filter Fasilitator */}
+            {detailActiveCategory === 'B' && (
+              <div className="w-full sm:w-52">
+                <select
+                  value={detailFasilitatorFilter}
+                  onChange={(e) => setDetailFasilitatorFilter(e.target.value)}
+                  className="w-full text-xs px-2 py-1.5 bg-white border border-slate-250 rounded-lg text-slate-700 font-bold focus:outline-none focus:border-indigo-505"
+                >
+                  <option value="">Semua Fasilitator (Filter)</option>
+                  {uniqueFasilitatorList.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           
-          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end">
             <button
               onClick={handleExportExcel}
               disabled={filtered.length === 0}
@@ -1225,13 +1449,13 @@ export default function App() {
                       <th className="p-3 min-w-[180px]">Harapan Kedepan</th>
                     </>
                   )}
-                  <th className="p-3 w-20 text-center select-none">Aksi</th>
+                  {activeTab === "detail-hasil" && <th className="p-3 w-20 text-center select-none">Aksi</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-150">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={18} className="p-10 text-center text-slate-400 italic">
+                    <td colSpan={activeTab === "detail-hasil" ? 18 : 17} className="p-10 text-center text-slate-400 italic">
                       Tidak ada detail penilaian peserta yang sesuai dengan filter pencarian.
                     </td>
                   </tr>
@@ -1297,16 +1521,18 @@ export default function App() {
                             </td>
                           </>
                         )}
-                        <td className="p-3 text-center">
-                          <button
-                            onClick={() => handleDeleteRespondent(r.id, r.nama_peserta)}
-                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 px-2 py-1 flex items-center justify-center gap-1 rounded-md border border-rose-100 text-[10px] font-extrabold cursor-pointer transition-all mx-auto"
-                            title="Hapus penilaian responden ini"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                            <span>Hapus</span>
-                          </button>
-                        </td>
+                        {activeTab === "detail-hasil" && (
+                          <td className="p-3 text-center">
+                            <button
+                              onClick={() => handleDeleteRespondent(r.id, r.nama_peserta)}
+                              className="bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 px-2 py-1 flex items-center justify-center gap-1 rounded-md border border-rose-100 text-[10px] font-extrabold cursor-pointer transition-all mx-auto"
+                              title="Hapus penilaian responden ini"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                              <span>Hapus</span>
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })
@@ -1489,6 +1715,22 @@ export default function App() {
                 >
                   <ClipboardList className="w-4 h-4" />
                   <span>Detail Hasil Penilaian</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveTab("internal-eval");
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left ${
+                    activeTab === "internal-eval" 
+                      ? "bg-rose-600 text-white shadow-xs" 
+                      : "hover:bg-slate-800 hover:text-white"
+                  }`}
+                  id="tab_nav_internal_eval"
+                >
+                  <ShieldAlert className="w-4 h-4 text-rose-400" />
+                  <span>Hasil Evaluasi Internal</span>
                 </button>
 
                 <button
@@ -1710,10 +1952,21 @@ export default function App() {
                         className={`flex-1 min-w-[120px] py-1.5 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
                           activeSubTab === "kegiatan"
                             ? "bg-blue-600 text-white shadow-sm"
-                            : "bg-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                            : "bg-transparent text-slate-600 hover:text-slate-100/80 hover:bg-slate-50"
                         }`}
                       >
                         🌟 Kegiatan
+                      </button>
+                      <button
+                        onClick={() => setActiveSubTab("internal")}
+                        className={`flex-1 min-w-[120px] py-1.5 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                          activeSubTab === "internal"
+                            ? "bg-rose-600 text-white shadow-sm"
+                            : "bg-transparent text-slate-600 hover:text-slate-905 hover:bg-slate-50"
+                        }`}
+                        id="btn_subtab_internal_nav"
+                      >
+                        🛡️ Evaluasi Internal
                       </button>
                     </div>
 
@@ -1737,21 +1990,30 @@ export default function App() {
                           {rekap && rekap.sessionStats && sessions.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                               <BarChart
-                                data={sessions.map((s) => {
-                                  const stats = rekap.sessionStats[s.id];
-                                  const truncName = s.nama_sesi.split(" ")[0] + " " + (s.nama_sesi.split(" ")[1] || "");
-                                  return {
-                                    name: truncName,
-                                    Pemateri: stats ? stats.pemateri_avg : 0,
-                                    Fasilitator: stats ? stats.fasilitator_avg : 0
-                                  };
-                                })}
+                                data={sessions
+                                  .filter((s) => {
+                                    const n = (s.nama_sesi || "").toLowerCase();
+                                    return !n.includes("penilaian") && !n.includes("internal");
+                                  })
+                                  .slice(0, 3)
+                                  .map((s) => {
+                                    const stats = rekap.sessionStats[s.id];
+                                    const truncName = s.nama_sesi.split(" ")[0] + " " + (s.nama_sesi.split(" ")[1] || "");
+                                    return {
+                                      name: truncName,
+                                      fullName: s.nama_sesi,
+                                      pemateriName: s.nama_pemateri || "-",
+                                      fasilitatorName: s.nama_fasilitator || "-",
+                                      Pemateri: stats ? stats.pemateri_avg : 0,
+                                      Fasilitator: stats ? stats.fasilitator_avg : 0
+                                    };
+                                  })}
                                 margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                               >
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                 <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                                 <YAxis domain={[0, 5]} tick={{ fontSize: 10 }} />
-                                <Tooltip contentStyle={{ fontSize: '11px', borderRadius: '8px' }} />
+                                <Tooltip content={<CustomTooltip />} />
                                 <Bar dataKey="Pemateri" fill="#3b82f6" radius={[2, 2, 0, 0]} />
                                 <Bar dataKey="Fasilitator" fill="#6366f1" radius={[2, 2, 0, 0]} />
                               </BarChart>
@@ -1759,6 +2021,10 @@ export default function App() {
                           ) : (
                             <div className="h-full flex items-center justify-center text-xs text-slate-400 italic">Belum ada statistik visual penilai.</div>
                           )}
+                        </div>
+
+                        <div className="text-center text-[11px] font-extrabold text-slate-500 mt-2" id="chart_legend_caption">
+                          Keterangan: Sesi
                         </div>
 
                         {/* DATA TABLE COMPARISON */}
@@ -1773,17 +2039,23 @@ export default function App() {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-150 text-slate-700">
-                              {sessions.map(s => {
-                                const stats = rekap?.sessionStats?.[s.id];
-                                return (
-                                  <tr key={s.id} className="hover:bg-slate-50/50">
-                                    <td className="p-2.5 font-bold text-slate-900">{s.nama_sesi}</td>
-                                    <td className="p-2.5 text-center font-semibold text-slate-500">{stats?.peserta_count || 0}</td>
-                                    <td className="p-2.5 text-center font-extrabold text-blue-600 bg-blue-50/10">{stats?.pemateri_avg ? stats.pemateri_avg.toFixed(2) : "0.00"}</td>
-                                    <td className="p-2.5 text-center font-extrabold text-indigo-600 bg-indigo-50/10">{stats?.fasilitator_avg ? stats.fasilitator_avg.toFixed(2) : "0.00"}</td>
-                                  </tr>
-                                );
-                              })}
+                              {sessions
+                                .filter((s) => {
+                                  const n = (s.nama_sesi || "").toLowerCase();
+                                  return !n.includes("penilaian") && !n.includes("internal");
+                                })
+                                .slice(0, 3)
+                                .map(s => {
+                                  const stats = rekap?.sessionStats?.[s.id];
+                                  return (
+                                    <tr key={s.id} className="hover:bg-slate-50/50">
+                                      <td className="p-2.5 font-bold text-slate-900">{s.nama_sesi}</td>
+                                      <td className="p-2.5 text-center font-semibold text-slate-500">{stats?.peserta_count || 0}</td>
+                                      <td className="p-2.5 text-center font-extrabold text-blue-600 bg-blue-50/10">{stats?.pemateri_avg ? stats.pemateri_avg.toFixed(2) : "0.00"}</td>
+                                      <td className="p-2.5 text-center font-extrabold text-indigo-600 bg-indigo-50/10">{stats?.fasilitator_avg ? stats.fasilitator_avg.toFixed(2) : "0.00"}</td>
+                                    </tr>
+                                  );
+                                })}
                             </tbody>
                           </table>
                         </div>
@@ -1825,9 +2097,14 @@ export default function App() {
                                 onChange={e => setSelectedPemateriSesiId(Number(e.target.value))}
                                 className="px-2 py-1 text-xs font-bold border rounded-lg bg-white text-slate-700 focus:outline-none focus:border-blue-500"
                               >
-                                {sessions.map(s => (
-                                  <option key={s.id} value={s.id}>{s.nama_sesi.split(" ")[0]} ({s.nama_pemateri || "N/A"})</option>
-                                ))}
+                                {sessions
+                                  .filter((s) => {
+                                    const n = (s.nama_sesi || "").toLowerCase();
+                                    return !n.includes("penilaian") && !n.includes("internal");
+                                  })
+                                  .map(s => (
+                                    <option key={s.id} value={s.id}>{s.nama_pemateri || "N/A"} ({s.nama_sesi})</option>
+                                  ))}
                               </select>
                             </div>
                           </div>
@@ -1950,9 +2227,14 @@ export default function App() {
                                 onChange={e => setSelectedFasilitatorSesiId(Number(e.target.value))}
                                 className="px-2 py-1 text-xs font-bold border rounded-lg bg-white text-slate-700 focus:outline-none focus:border-indigo-500"
                               >
-                                {sessions.map(s => (
-                                  <option key={s.id} value={s.id}>{s.nama_sesi.split(" ")[0]} ({s.nama_fasilitator || "N/A"})</option>
-                                ))}
+                                {sessions
+                                  .filter((s) => {
+                                    const n = (s.nama_sesi || "").toLowerCase();
+                                    return !n.includes("penilaian") && !n.includes("internal");
+                                  })
+                                  .map(s => (
+                                    <option key={s.id} value={s.id}>{s.nama_fasilitator || "N/A"} ({s.nama_sesi})</option>
+                                  ))}
                               </select>
                             </div>
                           </div>
@@ -2075,6 +2357,9 @@ export default function App() {
                                 <div>
                                   <h4 className="text-xs font-black text-slate-800">Pelayanan Panitia Bawaslu Paser</h4>
                                   <p className="text-[10px] text-slate-500">Kumulatif dari seluruh koresponden terdaftar</p>
+                                  <span className="inline-block mt-1.5 bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-md border border-amber-200">
+                                    Responden: {rekap?.totalPesertaEvaluasi || 0} orang
+                                  </span>
                                 </div>
                                 <div className="text-right">
                                   <span className="text-[9px] font-extrabold text-amber-500 uppercase block">Rerata Kumulatif</span>
@@ -2181,6 +2466,9 @@ export default function App() {
                                 <div>
                                   <h4 className="text-xs font-black text-slate-800">Tingkat Kepuasan Kegiatan (Overall)</h4>
                                   <p className="text-[10px] text-slate-500">Tinjauan manfaat & ketercapaian target</p>
+                                  <span className="inline-block mt-1.5 bg-teal-100 text-teal-850 text-[10px] font-bold px-2 py-0.5 rounded-md border border-teal-200">
+                                    Responden: {rekap?.totalPesertaEvaluasi || 0} orang
+                                  </span>
                                 </div>
                                 <div className="text-right">
                                   <span className="text-[9px] font-extrabold text-teal-500 uppercase block">Rerata Skor</span>
@@ -2302,6 +2590,126 @@ export default function App() {
                               </div>
                             </div>
 
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* SUB-TAB 6: EVALUASI INTERNAL */}
+                    {activeSubTab === "internal" && (() => {
+                      const aspectsData = [
+                        { name: "Perencanaan", fullDesc: "Proses perencanaan dan persiapan kegiatan", "Skor Rata-rata": Number(internalEvalStats.avgPlanning) || 0 },
+                        { name: "Pelaksanaan", fullDesc: "Pelaksanaan agenda dan kelancaran koordinasi", "Skor Rata-rata": Number(internalEvalStats.avgPelaksanaan) || 0 },
+                        { name: "Partisipasi", fullDesc: "Partisipasi dan sinergi tim internal", "Skor Rata-rata": Number(internalEvalStats.avgPartisipasi) || 0 },
+                        { name: "Tanggung Jawab", fullDesc: "Tanggung jawab penugasan panitia internal", "Skor Rata-rata": Number(internalEvalStats.avgTanggungJawab) || 0 }
+                      ];
+                      const comments = internalEvaluations.filter(e => e.saran && e.saran.trim() !== "");
+
+                      return (
+                        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-6 animate-fadeIn" id="subtab_internal_content">
+                          <div className="border-b border-slate-100 pb-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                            <div>
+                              <span className="text-[10px] font-bold text-rose-600 uppercase tracking-widest block font-sans">Evaluasi Khusus Tim Internal Pelaksana</span>
+                              <h3 className="text-sm font-black text-slate-800">Evaluasi Internal & Sinergi Kinerja Panitia</h3>
+                              <p className="text-[10px] text-slate-400">Hasil penilaian dari form anonim internal pelaksana Bawaslu Paser.</p>
+                            </div>
+                            <div className="bg-rose-50 text-rose-800 text-[10px] font-black px-3 py-1.5 rounded-lg border border-rose-100 flex items-center gap-1.5 shrink-0 self-start md:self-center font-sans">
+                              <Users className="w-3.5 h-3.5 text-rose-600" />
+                              <span>Responden Internal: {internalEvalStats.total} orang</span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                            {/* Left: Aspect Chart */}
+                            <div className="md:col-span-7 space-y-4">
+                              <div className="bg-rose-50/20 border border-rose-100 p-4 rounded-xl flex justify-between gap-4 items-center">
+                                <div>
+                                  <h4 className="text-xs font-black text-slate-800 font-sans">Skor Kinerja Internal Kerja Mandiri</h4>
+                                  <p className="text-[10px] text-slate-400 mt-0.5 font-sans">Penilaian dari 4 dimensi operasional utama</p>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-[9px] font-extrabold text-rose-500 uppercase block font-sans">Total Rerata</span>
+                                  <span className="text-xl font-black text-rose-700 font-mono">
+                                    {((Number(internalEvalStats.avgPlanning) + Number(internalEvalStats.avgPelaksanaan) + Number(internalEvalStats.avgPartisipasi) + Number(internalEvalStats.avgTanggungJawab)) / 4 || 0).toFixed(2)}/5.0
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block font-sans">Skor Unsur Kinerja Internal</span>
+                                <div className="h-[200px] border border-slate-50 rounded-lg p-2 bg-slate-50/30">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={aspectsData} margin={{ top: 10, right: 10, left: -30, bottom: 0 }}>
+                                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                      <XAxis dataKey="name" tick={{ fontSize: 9 }} />
+                                      <YAxis domain={[0, 5]} tick={{ fontSize: 9 }} />
+                                      <Tooltip 
+                                        contentStyle={{ fontSize: '11px', borderRadius: '8px' }}
+                                        formatter={(value, name, props) => [`${value} / 5.00`, "Skor"]}
+                                        labelFormatter={(value) => {
+                                          const item = aspectsData.find(d => d.name === value);
+                                          return `${value}: ${item ? item.fullDesc : ""}`;
+                                        }}
+                                      />
+                                      <Bar dataKey="Skor Rata-rata" fill="#f43f5e" radius={[4, 4, 0, 0]}>
+                                        {aspectsData.map((entry, index) => (
+                                          <Cell key={`cell-${index}`} fill={entry["Skor Rata-rata"] >= 4 ? "#e11d48" : entry["Skor Rata-rata"] >= 3 ? "#f43f5e" : "#fb7185"} />
+                                        ))}
+                                      </Bar>
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 p-3 bg-slate-50 rounded-lg text-[10px] text-slate-500 font-sans">
+                                <div className="flex gap-1.5 items-start">
+                                  <span className="font-extrabold text-rose-600 block min-w-[24px]">U-1:</span>
+                                  <span>Planning (Perencanaan & Persiapan)</span>
+                                </div>
+                                <div className="flex gap-1.5 items-start">
+                                  <span className="font-extrabold text-rose-600 block min-w-[24px]">U-2:</span>
+                                  <span>Pelaksanaan (Agenda & Koordinasi)</span>
+                                </div>
+                                <div className="flex gap-1.5 items-start">
+                                  <span className="font-extrabold text-rose-600 block min-w-[24px]">U-3:</span>
+                                  <span>Partisipasi (Sinergi Tim Kerja)</span>
+                                </div>
+                                <div className="flex gap-1.5 items-start">
+                                  <span className="font-extrabold text-rose-600 block min-w-[24px]">U-4:</span>
+                                  <span>Tanggung Jawab (Penyelesaian Tugas)</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Right: Comments */}
+                            <div className="md:col-span-5 flex flex-col justify-between">
+                              <div className="space-y-2 flex-1">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1 font-sans">
+                                  <MessageSquare className="w-3.5 h-3.5 text-rose-500" />
+                                  Usulan & Evaluasi Kritis Internal ({comments.length})
+                                </span>
+                                
+                                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                                  {comments.length === 0 ? (
+                                    <div className="py-12 bg-slate-55 border border-dashed rounded-lg text-center text-slate-400 text-[11px] italic font-sans animate-pulse">
+                                      Belum ada saran atau kritikan kritis khusus yang tertulis dari tim internal.
+                                    </div>
+                                  ) : (
+                                    comments.map((c, idx) => (
+                                      <div key={`int-comment-${c.id || idx}`} className="p-3 bg-rose-50/10 border border-rose-50 rounded-xl space-y-1">
+                                        <p className="text-[11px] italic text-slate-600 font-medium leading-relaxed font-sans">"{c.saran}"</p>
+                                        <div className="flex justify-between items-center text-[9px] text-slate-400 font-sans">
+                                          <span className="font-bold">Anonim Tim Kerja</span>
+                                          <span>
+                                            {c.createdAt ? new Date(c.createdAt).toLocaleDateString("id-ID", { day: 'numeric', month: 'short' }) : ""}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       );
@@ -2939,40 +3347,27 @@ export default function App() {
                     <p className="text-xs text-slate-500">Analisis lengkap tanggapan kuantitatif (Likert) dan evaluasi kualitatif (saran, kritik, tindak lanjut) per responden.</p>
                   </div>
 
-                  <button
-                    onClick={fetchAdminData}
-                    className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-3 py-1.5 rounded-lg text-xs font-bold shadow-2xs cursor-pointer transition-all"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Segarkan Data</span>
-                  </button>
-                </div>
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                    <button
+                      onClick={fetchAdminData}
+                      className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-3 py-1.5 rounded-lg text-xs font-bold shadow-2xs cursor-pointer transition-all"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Segarkan Data</span>
+                    </button>
 
-                {/* MANAGEMENT AND RESET CALLOUT FOR TESTING */}
-                <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center md:justify-between gap-4 shadow-3xs" id="manajemen_hasil_danger_notice">
-                  <div className="flex gap-3">
-                    <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 flex-shrink-0 animate-pulse">
-                      <ShieldAlert className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-slate-900 text-sm font-black">Mode Uji Coba & Manajemen Hasil Penilaian</h3>
-                      <p className="text-slate-500 text-xs mt-1 leading-relaxed max-w-2xl">
-                        Gunakan fitur ini untuk menghapus data evaluasi selama masa pengujian (trial) agar aplikasi siap digunakan secara bersih (fresh) kembali saat acara resmi dimulai. Anda dapat menghapus baris peserta satu per satu di tabel atau membersihkan seluruh data sekaligus.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex-shrink-0 w-full md:w-auto flex justify-end">
                     <button
                       onClick={handleResetAllEvaluations}
                       disabled={detailRespondents.length === 0}
-                      className={`px-4 py-2.5 rounded-xl text-xs font-black shadow-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                      className={`flex items-center gap-1 px-2.5 py-1.5 border rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                         detailRespondents.length === 0
-                          ? "bg-slate-150 text-slate-400 border border-slate-200 cursor-not-allowed"
-                          : "bg-rose-600 hover:bg-rose-700 text-white border border-rose-700 hover:shadow-md"
+                          ? "opacity-40 cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
+                          : "border-slate-200 bg-white hover:bg-rose-50/45 text-slate-600 hover:text-rose-600 hover:border-rose-200 shadow-3xs"
                       }`}
                       id="btn_management_reset_all"
+                      title="Mengosongkan semua hasil penilaian"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3 h-3 text-slate-450 group-hover:text-rose-500" />
                       <span>Kosongkan Semua Hasil Penilaian</span>
                     </button>
                   </div>
@@ -2984,7 +3379,505 @@ export default function App() {
               </div>
             )}
 
+            {/* HASH / TAB HASIL EVALUASI INTERNAL */}
+            {isAdminLogged && activeTab === "internal-eval" && (
+              <div className="space-y-6 animate-fadeIn" id="internal_eval_tab_viewport">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-300 pb-4">
+                  <div>
+                    <h2 className="text-xl font-extrabold text-slate-900 leading-snug">Hasil Evaluasi Internal (Anonim)</h2>
+                    <p className="text-xs text-slate-500">Hasil penilaian, metrik, beserta saran/kritik dari tim internal pelaksana kegiatan Bawaslu Paser.</p>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={fetchAdminData}
+                      className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-3 py-1.5 rounded-lg text-xs font-bold shadow-2xs cursor-pointer transition-all"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Segarkan Data</span>
+                    </button>
+
+                    <button
+                      onClick={handleResetInternalEvals}
+                      disabled={internalEvaluations.length === 0}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 border rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                        internalEvaluations.length === 0
+                          ? "opacity-40 cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
+                          : "border-slate-200 bg-white hover:bg-rose-50/40 text-slate-600 hover:text-rose-600 hover:border-rose-200 shadow-2xs"
+                      }`}
+                      id="btn_reset_internal_action"
+                      title="Satu-klik untuk mengosongkan evaluasi internal"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Kosongkan Data</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* KPI METRIC CARDS GRID */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4" id="internal_eval_kpi_grid">
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-3xs hover:shadow-2xs transition-all">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Total Responden</span>
+                    <div className="mt-2 flex items-baseline gap-2">
+                      <span className="text-3xl font-black text-slate-900">{internalEvalStats.total}</span>
+                      <span className="text-xs text-slate-400 font-medium font-sans">pelaksana</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-3xs">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Rata-rata Planning</span>
+                    <div className="mt-2 flex items-baseline gap-1.5">
+                      <span className="text-3xl font-black text-slate-900 font-mono">{internalEvalStats.avgPlanning}</span>
+                      <span className="text-xs text-slate-400 font-sans font-medium">/ 5</span>
+                    </div>
+                    <span className={`text-[9px] font-bold mt-1 uppercase tracking-wider ${internalEvalStats.avgPlanning >= 4 ? "text-emerald-600" : internalEvalStats.avgPlanning >= 3 ? "text-amber-600" : "text-rose-600"}`}>
+                      {internalEvalStats.avgPlanning === 0 ? "-" : (internalEvalStats.avgPlanning >= 4.5 ? "Sangat Baik" : internalEvalStats.avgPlanning >= 4 ? "Baik" : internalEvalStats.avgPlanning >= 3 ? "Cukup" : "Kurang")}
+                    </span>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-3xs">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Rata-rata Pelaksanaan</span>
+                    <div className="mt-2 flex items-baseline gap-1.5">
+                      <span className="text-3xl font-black text-slate-900 font-mono">{internalEvalStats.avgPelaksanaan}</span>
+                      <span className="text-xs text-slate-400 font-sans font-medium">/ 5</span>
+                    </div>
+                    <span className={`text-[9px] font-bold mt-1 uppercase tracking-wider ${internalEvalStats.avgPelaksanaan >= 4 ? "text-emerald-600" : internalEvalStats.avgPelaksanaan >= 3 ? "text-amber-600" : "text-rose-600"}`}>
+                      {internalEvalStats.avgPelaksanaan === 0 ? "-" : (internalEvalStats.avgPelaksanaan >= 4.5 ? "Sangat Baik" : internalEvalStats.avgPelaksanaan >= 4 ? "Baik" : internalEvalStats.avgPelaksanaan >= 3 ? "Cukup" : "Kurang")}
+                    </span>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-3xs">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Rata-rata Partisipasi</span>
+                    <div className="mt-2 flex items-baseline gap-1.5">
+                      <span className="text-3xl font-black text-slate-900 font-mono">{internalEvalStats.avgPartisipasi}</span>
+                      <span className="text-xs text-slate-400 font-sans font-medium">/ 5</span>
+                    </div>
+                    <span className={`text-[9px] font-bold mt-1 uppercase tracking-wider ${internalEvalStats.avgPartisipasi >= 4 ? "text-emerald-600" : internalEvalStats.avgPartisipasi >= 3 ? "text-amber-600" : "text-rose-600"}`}>
+                      {internalEvalStats.avgPartisipasi === 0 ? "-" : (internalEvalStats.avgPartisipasi >= 4.5 ? "Sangat Baik" : internalEvalStats.avgPartisipasi >= 4 ? "Baik" : internalEvalStats.avgPartisipasi >= 3 ? "Cukup" : "Kurang")}
+                    </span>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-3xs">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Rata-rata Tgjwb Penugasan</span>
+                    <div className="mt-2 flex items-baseline gap-1.5">
+                      <span className="text-3xl font-black text-slate-900 font-mono">{internalEvalStats.avgTanggungJawab}</span>
+                      <span className="text-xs text-slate-400 font-sans font-medium">/ 5</span>
+                    </div>
+                    <span className={`text-[9px] font-bold mt-1 uppercase tracking-wider ${internalEvalStats.avgTanggungJawab >= 4 ? "text-emerald-600" : internalEvalStats.avgTanggungJawab >= 3 ? "text-amber-600" : "text-rose-600"}`}>
+                      {internalEvalStats.avgTanggungJawab === 0 ? "-" : (internalEvalStats.avgTanggungJawab >= 4.5 ? "Sangat Baik" : internalEvalStats.avgTanggungJawab >= 4 ? "Baik" : internalEvalStats.avgTanggungJawab >= 3 ? "Cukup" : "Kurang")}
+                    </span>
+                  </div>
+                </div>
+
+                {/* DATA TABLE FOR RESPONSES */}
+                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs" id="internal_eval_table_card">
+                  <div className="p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between" id="table_header_container">
+                    <div className="flex items-center gap-2">
+                       <span className="w-2.5 h-2.5 rounded-full bg-rose-600"></span>
+                       <h3 className="text-sm font-black text-slate-800">Daftar Tanggapan Anonim Tim Internal</h3>
+                    </div>
+                    <span className="text-xs text-slate-500 font-bold">Total Tanggapan: {internalEvaluations.length}</span>
+                  </div>
+
+                  {internalEvaluations.length === 0 ? (
+                    <div className="text-center py-16 space-y-2 text-slate-400" id="empty_internal_table">
+                      <p className="text-sm font-black">Belum Ada Tanggapan Masuk</p>
+                      <p className="text-xs font-medium">Formulir penilaian anonim di /evaluasi belum diisi oleh tim internal.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto" id="internal_table_scroller">
+                      <table className="w-full text-left border-collapse" id="internal_responses_table">
+                        <thead>
+                          <tr className="border-b border-slate-200 bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-wider">
+                            <th className="py-3 px-4 text-center w-12 font-mono">No</th>
+                            <th className="py-3 px-4 w-36">Waktu Pengisian</th>
+                            <th className="py-3 px-4 text-center">Score 1 (Planning)</th>
+                            <th className="py-3 px-4 text-center">Score 2 (Pelaksanaan)</th>
+                            <th className="py-3 px-4 text-center">Score 3 (Partisipasi)</th>
+                            <th className="py-3 px-4 text-center">Score 4 (Tanggung Jawab)</th>
+                            <th className="py-3 px-4 min-w-[200px]">Core / Point 5 (Saran & Masukan)</th>
+                            <th className="py-3 px-4 text-center w-20">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-xs font-medium">
+                          {internalEvaluations.map((item, index) => (
+                            <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="py-3 px-4 text-center text-slate-400 font-mono">{index + 1}</td>
+                              <td className="py-3 px-4 whitespace-nowrap text-slate-500">
+                                {new Date(item.createdAt).toLocaleString("id-ID", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit"
+                                })}
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-black font-mono border ${
+                                  item.planningScore >= 4 ? "bg-emerald-50 border-emerald-200 text-emerald-700" : item.planningScore >= 3 ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-rose-50 border-rose-200 text-rose-700"
+                                }`}>
+                                  {item.planningScore}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-black font-mono border ${
+                                  item.pelaksanaanScore >= 4 ? "bg-emerald-50 border-emerald-200 text-emerald-700" : item.pelaksanaanScore >= 3 ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-rose-50 border-rose-200 text-rose-700"
+                                }`}>
+                                  {item.pelaksanaanScore}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-black font-mono border ${
+                                  item.partisipasiScore >= 4 ? "bg-emerald-50 border-emerald-200 text-emerald-700" : item.partisipasiScore >= 3 ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-rose-50 border-rose-200 text-rose-700"
+                                }`}>
+                                  {item.partisipasiScore}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-black font-mono border ${
+                                  item.tanggungJawabScore >= 4 ? "bg-emerald-50 border-emerald-200 text-emerald-700" : item.tanggungJawabScore >= 3 ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-rose-50 border-rose-200 text-rose-700"
+                                }`}>
+                                  {item.tanggungJawabScore}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-slate-700 font-sans leading-relaxed text-[11px] whitespace-pre-wrap max-w-sm">
+                                {item.saran ? (
+                                  <div className="bg-slate-50/70 rounded-lg p-2.5 border border-slate-100 italic">
+                                    "{item.saran}"
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 font-medium italic">Tidak ada saran tertulis</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <button
+                                  onClick={() => handleDeleteInternalEval(item.id)}
+                                  className="p-1.5 bg-rose-50 border border-rose-250 hover:bg-rose-500 rounded text-rose-600 hover:text-white cursor-pointer transition-all inline-flex items-center shadow-3xs"
+                                  title="Hapus tanggapan ini"
+                                  id={`btn_delete_ev_${item.id}`}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
           </main>
+        </div>
+      ) : currentPath === "/evaluasi" ? (
+        /* RENDER MODE EVALUASI INTERNAL (FRONTEND /EVALUASI) */
+        <div className="flex-1 max-w-3xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col justify-start animate-fadeIn" id="evaluasi_workspace">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 sm:p-8 space-y-6 animate-scaleUp" id="evaluasi_form_card">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-5" id="evaluasi_title_header">
+              <div className="w-12 h-12 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 flex-shrink-0 animate-pulse">
+                <ShieldAlert className="w-6 h-6 animate-pulse" />
+              </div>
+              <div>
+                <h2 className="text-sm font-black text-slate-900 tracking-tight uppercase">Evaluasi Internal Kegiatan P2P</h2>
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">Bawaslu Kabupaten Paser - Tahun 2026</p>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-800 leading-relaxed font-bold flex gap-2" id="confidential_alert">
+              <span className="text-base leading-none">🔒</span>
+              <div>
+                <span className="uppercase tracking-widest text-[10px] text-amber-900 block font-black mb-0.5">ANONIM & RAHASIA</span>
+                Formulir ini diisi oleh masing-masing pelaksana internal kegiatan. Tidak perlu mencantumkan nama atau identitas apa pun.
+              </div>
+            </div>
+
+            {internalSuccess ? (
+              <div className="text-center py-10 space-y-4 animate-fadeIn" id="evaluasi_success_container">
+                <div className="w-16 h-16 bg-emerald-50 border border-emerald-200 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto shadow-xs">🎉</div>
+                <h3 className="text-base font-black text-slate-900">Terima Kasih Banyak!</h3>
+                <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                  Evaluasi internal Anda berhasil dikirimkan secara anonim dan aman ke dalam dashboard administrator Bawaslu Paser. Masukan Anda sangat berharga untuk perbaikan kegiatan kami kedepannya.
+                </p>
+                <div className="pt-4">
+                  <button
+                    onClick={() => {
+                      setInternalSuccess(false);
+                      setInternalPlanning(null);
+                      setInternalPelaksanaan(null);
+                      setInternalPartisipasi(null);
+                      setInternalTanggungJawab(null);
+                      setInternalSaran("");
+                    }}
+                    className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black shadow-xs transition-all cursor-pointer"
+                    id="btn_submit_another_internal"
+                  >
+                    Kirim Evaluasi Baru
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmitInternalEval} className="space-y-8 animate-fadeIn" id="form_internal_evaluasi">
+                {internalError && (
+                  <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold rounded-xl animate-fadeIn" id="internal_error_banner">
+                    {internalError}
+                  </div>
+                )}
+
+                {/* Question 1 */}
+                <div className="space-y-3" id="q_internal_1">
+                  <div className="flex items-start gap-2.5">
+                    <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-2 py-0.5 rounded-md mt-0.5">1</span>
+                    <label className="text-slate-900 text-xs font-black leading-relaxed">
+                      PLANNING KEGIATAN <span className="text-rose-500">*</span>
+                      <p className="text-slate-500 font-medium mt-1 leading-relaxed">
+                        Bagaimana penilaian Anda terhadap kesiapan dan perencanaan kegiatan Pengawasan Partisipatif Tahun 2026 yang dilaksanakan pada tanggal 20 Juni 2026 (penyusunan rencana, jadwal, dan persiapan teknis)?
+                      </p>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-5 gap-2 pt-2" id="q1_options">
+                    {[1, 2, 3, 4, 5].map(score => (
+                      <button
+                        key={score}
+                        type="button"
+                        onClick={() => setInternalPlanning(score)}
+                        className={`py-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                          internalPlanning === score
+                            ? "bg-rose-600 border-rose-600 text-white shadow-sm font-black"
+                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
+                        }`}
+                      >
+                        <span className="text-sm">{score}</span>
+                        <span className="text-[8px] uppercase tracking-wider hidden sm:inline">
+                          {score === 1 && "Sangat Buruk"}
+                          {score === 2 && "Buruk"}
+                          {score === 3 && "Cukup"}
+                          {score === 4 && "Baik"}
+                          {score === 5 && "Sangat Baik"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {internalPlanning && (
+                    <div className="sm:hidden text-center w-full mt-1.5 animate-fadeIn">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-50 border border-rose-200 text-rose-700 px-2.5 py-1 rounded-md inline-block shadow-3xs">
+                        Pilihan: {
+                          internalPlanning === 1 && "Sangat Buruk" ||
+                          internalPlanning === 2 && "Buruk" ||
+                          internalPlanning === 3 && "Cukup" ||
+                          internalPlanning === 4 && "Baik" ||
+                          internalPlanning === 5 && "Sangat Baik"
+                        }
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Question 2 */}
+                <div className="space-y-3" id="q_internal_2">
+                  <div className="flex items-start gap-2.5">
+                    <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-2 py-0.5 rounded-md mt-0.5">2</span>
+                    <label className="text-slate-900 text-xs font-black leading-relaxed">
+                      PELAKSANAAN KEGIATAN <span className="text-rose-500">*</span>
+                      <p className="text-slate-500 font-medium mt-1 leading-relaxed">
+                        Bagaimana penilaian Anda terhadap pelaksanaan kegiatan secara keseluruhan (kelancaran acara, ketepatan waktu, dan kesesuaian dengan rencana kegiatan yang akan dilakukan?
+                      </p>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-5 gap-2 pt-2" id="q2_options">
+                    {[1, 2, 3, 4, 5].map(score => (
+                      <button
+                        key={score}
+                        type="button"
+                        onClick={() => setInternalPelaksanaan(score)}
+                        className={`py-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                          internalPelaksanaan === score
+                            ? "bg-rose-600 border-rose-600 text-white shadow-sm font-black"
+                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
+                        }`}
+                      >
+                        <span className="text-sm">{score}</span>
+                        <span className="text-[8px] uppercase tracking-wider hidden sm:inline">
+                          {score === 1 && "Sangat Buruk"}
+                          {score === 2 && "Buruk"}
+                          {score === 3 && "Cukup"}
+                          {score === 4 && "Baik"}
+                          {score === 5 && "Sangat Baik"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {internalPelaksanaan && (
+                    <div className="sm:hidden text-center w-full mt-1.5 animate-fadeIn">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-50 border border-rose-200 text-rose-700 px-2.5 py-1 rounded-md inline-block shadow-3xs">
+                        Pilihan: {
+                          internalPelaksanaan === 1 && "Sangat Buruk" ||
+                          internalPelaksanaan === 2 && "Buruk" ||
+                          internalPelaksanaan === 3 && "Cukup" ||
+                          internalPelaksanaan === 4 && "Baik" ||
+                          internalPelaksanaan === 5 && "Sangat Baik"
+                        }
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Question 3 */}
+                <div className="space-y-3" id="q_internal_3">
+                  <div className="flex items-start gap-2.5">
+                    <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-2 py-0.5 rounded-md mt-0.5">3</span>
+                    <label className="text-slate-900 text-xs font-black leading-relaxed">
+                      PARTISIPASI DALAM PELAKSANAAN <span className="text-rose-500">*</span>
+                      <p className="text-slate-500 font-medium mt-1 leading-relaxed">
+                        Bagaimana penilaian Anda terhadap partisipasi masing-masing selama kegiatan berlangsung?
+                      </p>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-5 gap-2 pt-2" id="q3_options">
+                    {[1, 2, 3, 4, 5].map(score => (
+                      <button
+                        key={score}
+                        type="button"
+                        onClick={() => setInternalPartisipasi(score)}
+                        className={`py-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                          internalPartisipasi === score
+                            ? "bg-rose-600 border-rose-600 text-white shadow-sm font-black"
+                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
+                        }`}
+                      >
+                        <span className="text-sm">{score}</span>
+                        <span className="text-[8px] uppercase tracking-wider hidden sm:inline">
+                          {score === 1 && "Sangat Buruk"}
+                          {score === 2 && "Buruk"}
+                          {score === 3 && "Cukup"}
+                          {score === 4 && "Baik"}
+                          {score === 5 && "Sangat Baik"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {internalPartisipasi && (
+                    <div className="sm:hidden text-center w-full mt-1.5 animate-fadeIn">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-50 border border-rose-200 text-rose-700 px-2.5 py-1 rounded-md inline-block shadow-3xs">
+                        Pilihan: {
+                          internalPartisipasi === 1 && "Sangat Buruk" ||
+                          internalPartisipasi === 2 && "Buruk" ||
+                          internalPartisipasi === 3 && "Cukup" ||
+                          internalPartisipasi === 4 && "Baik" ||
+                          internalPartisipasi === 5 && "Sangat Baik"
+                        }
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Question 4 */}
+                <div className="space-y-3" id="q_internal_4">
+                  <div className="flex items-start gap-2.5">
+                    <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-2 py-0.5 rounded-md mt-0.5">4</span>
+                    <label className="text-slate-900 text-xs font-black leading-relaxed">
+                      TANGGUNG JAWAB ATAS PENUGASAN <span className="text-rose-500">*</span>
+                      <p className="text-slate-500 font-medium mt-1 leading-relaxed">
+                        Bagaimana penilaian Anda terhadap tanggung jawab masing-masing pelaksana atas tugas yang diberikan?
+                      </p>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-5 gap-2 pt-2" id="q4_options">
+                    {[1, 2, 3, 4, 5].map(score => (
+                      <button
+                        key={score}
+                        type="button"
+                        onClick={() => setInternalTanggungJawab(score)}
+                        className={`py-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                          internalTanggungJawab === score
+                            ? "bg-rose-600 border-rose-600 text-white shadow-sm font-black"
+                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
+                        }`}
+                      >
+                        <span className="text-sm">{score}</span>
+                        <span className="text-[8px] uppercase tracking-wider hidden sm:inline">
+                          {score === 1 && "Sangat Buruk"}
+                          {score === 2 && "Buruk"}
+                          {score === 3 && "Cukup"}
+                          {score === 4 && "Baik"}
+                          {score === 5 && "Sangat Baik"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {internalTanggungJawab && (
+                    <div className="sm:hidden text-center w-full mt-1.5 animate-fadeIn">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-50 border border-rose-200 text-rose-700 px-2.5 py-1 rounded-md inline-block shadow-3xs">
+                        Pilihan: {
+                          internalTanggungJawab === 1 && "Sangat Buruk" ||
+                          internalTanggungJawab === 2 && "Buruk" ||
+                          internalTanggungJawab === 3 && "Cukup" ||
+                          internalTanggungJawab === 4 && "Baik" ||
+                          internalTanggungJawab === 5 && "Sangat Baik"
+                        }
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Question 5 */}
+                <div className="space-y-3" id="q_internal_5">
+                  <div className="flex items-start gap-2.5">
+                    <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-2 py-0.5 rounded-md mt-0.5">5</span>
+                    <label className="text-slate-900 text-xs font-black leading-relaxed block">
+                      SARAN DAN MASUKAN
+                      <p className="text-slate-500 font-medium mt-1 leading-relaxed">
+                        Saran dan masukan Anda terkait Point 1–4 di atas, untuk perbaikan kegiatan berikutnya.
+                      </p>
+                    </label>
+                  </div>
+
+                  <div className="pt-1">
+                    <textarea
+                      rows={4}
+                      value={internalSaran}
+                      onChange={e => setInternalSaran(e.target.value)}
+                      placeholder="Tulis kritik konstruktif, saran, masukan perbaikan teknis atau penugasan di sini..."
+                      className="w-full text-slate-800 text-xs px-4 py-3 border border-slate-250 rounded-xl focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 bg-slate-50/50"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-between" id="internal_footer_actions">
+                  <div className="text-[10px] text-slate-400 italic">
+                    * Wajib diisi secara jujur & objektif.
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={
+                      internalSubmitting ||
+                      internalPlanning === null ||
+                      internalPelaksanaan === null ||
+                      internalPartisipasi === null ||
+                      internalTanggungJawab === null
+                    }
+                    className={`px-6 py-3 rounded-xl text-xs font-black shadow-sm transition-all cursor-pointer flex items-center gap-1.5 ${
+                      internalSubmitting ||
+                      internalPlanning === null ||
+                      internalPelaksanaan === null ||
+                      internalPartisipasi === null ||
+                      internalTanggungJawab === null
+                        ? "bg-slate-150 text-slate-400 cursor-not-allowed border border-slate-200"
+                        : "bg-rose-600 hover:bg-rose-700 text-white border border-rose-700 hover:shadow-md"
+                    }`}
+                    id="submit_internal_btn"
+                  >
+                    {internalSubmitting ? "Mengirimkan secara Anonim..." : "Kirim Penilaian Rahasia"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       ) : (
 
@@ -3205,36 +4098,45 @@ export default function App() {
                               </div>
 
                               {/* LIKERT RADIO INPUT SECTOR */}
-                              <div className="flex justify-between items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200" id={`likert_selector_${q.id}`}>
-                                <div className="flex justify-around items-center gap-1.5 mx-auto sm:mx-0">
-                                  {[1, 2, 3, 4, 5].map((score) => (
-                                    <button
-                                      key={score}
-                                      type="button"
-                                      onClick={() => handleRatingSelect(q.id, score)}
-                                      className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex flex-col items-center justify-center border font-black text-xs transition-all cursor-pointer ${
-                                        ratings[q.id] === score
-                                          ? "bg-blue-600 border-blue-700 text-white shadow-sm scale-105"
-                                          : "/1/2/3".includes(score.toString())
-                                            ? "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                      }`}
-                                      id={`btn_score_${q.id}_${score}`}
-                                    >
-                                      <span>{score}</span>
-                                      <span className="text-[7px] font-normal opacity-70 block">
-                                        {score === 1 && "S. Buruk"}
-                                        {score === 2 && "Buruk"}
-                                        {score === 3 && "Cukup"}
-                                        {score === 4 && "Baik"}
-                                        {score === 5 && "S. Baik"}
-                                      </span>
-                                    </button>
-                                  ))}
+                              <div className="flex flex-col gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200" id={`likert_selector_${q.id}`}>
+                                <div className="flex justify-between items-center gap-2 w-full">
+                                  <div className="flex justify-around items-center gap-1.5 mx-auto sm:mx-0">
+                                    {[1, 2, 3, 4, 5].map((score) => (
+                                      <button
+                                        key={score}
+                                        type="button"
+                                        onClick={() => handleRatingSelect(q.id, score)}
+                                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex flex-col items-center justify-center border font-black text-xs transition-all cursor-pointer ${
+                                          ratings[q.id] === score
+                                            ? "bg-blue-600 border-blue-700 text-white shadow-sm scale-105"
+                                            : "/1/2/3".includes(score.toString())
+                                              ? "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                                        }`}
+                                        id={`btn_score_${q.id}_${score}`}
+                                      >
+                                        <span>{score}</span>
+                                        <span className="text-[7px] font-normal opacity-70 block">
+                                          {score === 1 && "S. Buruk"}
+                                          {score === 2 && "Buruk"}
+                                          {score === 3 && "Cukup"}
+                                          {score === 4 && "Baik"}
+                                          {score === 5 && "S. Baik"}
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <span className={`text-[10px] uppercase tracking-wider hidden sm:inline ${getQuestionIndicatorColor(q.id)}`}>
+                                    {getQuestionIndicatorText(q.id)}
+                                  </span>
                                 </div>
-                                <span className={`text-[10px] uppercase tracking-wider hidden sm:inline ${getQuestionIndicatorColor(q.id)}`}>
-                                  {getQuestionIndicatorText(q.id)}
-                                </span>
+                                {ratings[q.id] && (
+                                  <div className="sm:hidden text-center w-full mt-0.5 animate-fadeIn">
+                                    <span className={`text-[10px] font-extrabold uppercase tracking-wider bg-white px-2.5 py-1 rounded-md border inline-block ${getQuestionIndicatorColor(q.id)} border-slate-200 shadow-3xs`}>
+                                      Pilihan: {getQuestionIndicatorText(q.id)}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -3277,36 +4179,45 @@ export default function App() {
                               </div>
 
                               {/* LIKERT RADIO INPUT SECTOR */}
-                              <div className="flex justify-between items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200" id={`likert_selector_${q.id}`}>
-                                <div className="flex justify-around items-center gap-1.5 mx-auto sm:mx-0">
-                                  {[1, 2, 3, 4, 5].map((score) => (
-                                    <button
-                                      key={score}
-                                      type="button"
-                                      onClick={() => handleRatingSelect(q.id, score)}
-                                      className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex flex-col items-center justify-center border font-black text-xs transition-all cursor-pointer ${
-                                        ratings[q.id] === score
-                                          ? "bg-indigo-600 border-indigo-700 text-white shadow-sm scale-105"
-                                          : "/1/2/3".includes(score.toString())
-                                            ? "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                      }`}
-                                      id={`btn_score_${q.id}_${score}`}
-                                    >
-                                      <span>{score}</span>
-                                      <span className="text-[7px] font-normal opacity-70 block">
-                                        {score === 1 && "S. Buruk"}
-                                        {score === 2 && "Buruk"}
-                                        {score === 3 && "Cukup"}
-                                        {score === 4 && "Baik"}
-                                        {score === 5 && "S. Baik"}
-                                      </span>
-                                    </button>
-                                  ))}
+                              <div className="flex flex-col gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200" id={`likert_selector_${q.id}`}>
+                                <div className="flex justify-between items-center gap-2 w-full">
+                                  <div className="flex justify-around items-center gap-1.5 mx-auto sm:mx-0">
+                                    {[1, 2, 3, 4, 5].map((score) => (
+                                      <button
+                                        key={score}
+                                        type="button"
+                                        onClick={() => handleRatingSelect(q.id, score)}
+                                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex flex-col items-center justify-center border font-black text-xs transition-all cursor-pointer ${
+                                          ratings[q.id] === score
+                                            ? "bg-indigo-600 border-indigo-700 text-white shadow-sm scale-105"
+                                            : "/1/2/3".includes(score.toString())
+                                              ? "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                                        }`}
+                                        id={`btn_score_${q.id}_${score}`}
+                                      >
+                                        <span>{score}</span>
+                                        <span className="text-[7px] font-normal opacity-70 block">
+                                          {score === 1 && "S. Buruk"}
+                                          {score === 2 && "Buruk"}
+                                          {score === 3 && "Cukup"}
+                                          {score === 4 && "Baik"}
+                                          {score === 5 && "S. Baik"}
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <span className={`text-[10px] uppercase tracking-wider hidden sm:inline ${getQuestionIndicatorColor(q.id)}`}>
+                                    {getQuestionIndicatorText(q.id)}
+                                  </span>
                                 </div>
-                                <span className={`text-[10px] uppercase tracking-wider hidden sm:inline ${getQuestionIndicatorColor(q.id)}`}>
-                                  {getQuestionIndicatorText(q.id)}
-                                </span>
+                                {ratings[q.id] && (
+                                  <div className="sm:hidden text-center w-full mt-0.5 animate-fadeIn">
+                                    <span className={`text-[10px] font-extrabold uppercase tracking-wider bg-white px-2.5 py-1 rounded-md border inline-block ${getQuestionIndicatorColor(q.id)} border-slate-200 shadow-3xs`}>
+                                      Pilihan: {getQuestionIndicatorText(q.id)}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -3349,36 +4260,45 @@ export default function App() {
                               </div>
 
                               {/* LIKERT RADIO INPUT SECTOR */}
-                              <div className="flex justify-between items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200" id={`likert_selector_${q.id}`}>
-                                <div className="flex justify-around items-center gap-1.5 mx-auto sm:mx-0">
-                                  {[1, 2, 3, 4, 5].map((score) => (
-                                    <button
-                                      key={score}
-                                      type="button"
-                                      onClick={() => handleRatingSelect(q.id, score)}
-                                      className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex flex-col items-center justify-center border font-black text-xs transition-all cursor-pointer ${
-                                        ratings[q.id] === score
-                                          ? "bg-amber-600 border-amber-700 text-white shadow-sm scale-105"
-                                          : "/1/2/3".includes(score.toString())
-                                            ? "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                      }`}
-                                      id={`btn_score_${q.id}_${score}`}
-                                    >
-                                      <span>{score}</span>
-                                      <span className="text-[7px] font-normal opacity-70 block">
-                                        {score === 1 && "S. Buruk"}
-                                        {score === 2 && "Buruk"}
-                                        {score === 3 && "Cukup"}
-                                        {score === 4 && "Baik"}
-                                        {score === 5 && "S. Baik"}
-                                      </span>
-                                    </button>
-                                  ))}
+                              <div className="flex flex-col gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200" id={`likert_selector_${q.id}`}>
+                                <div className="flex justify-between items-center gap-2 w-full">
+                                  <div className="flex justify-around items-center gap-1.5 mx-auto sm:mx-0">
+                                    {[1, 2, 3, 4, 5].map((score) => (
+                                      <button
+                                        key={score}
+                                        type="button"
+                                        onClick={() => handleRatingSelect(q.id, score)}
+                                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex flex-col items-center justify-center border font-black text-xs transition-all cursor-pointer ${
+                                          ratings[q.id] === score
+                                            ? "bg-amber-600 border-amber-700 text-white shadow-sm scale-105"
+                                            : "/1/2/3".includes(score.toString())
+                                              ? "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                                        }`}
+                                        id={`btn_score_${q.id}_${score}`}
+                                      >
+                                        <span>{score}</span>
+                                        <span className="text-[7px] font-normal opacity-70 block">
+                                          {score === 1 && "S. Buruk"}
+                                          {score === 2 && "Buruk"}
+                                          {score === 3 && "Cukup"}
+                                          {score === 4 && "Baik"}
+                                          {score === 5 && "S. Baik"}
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <span className={`text-[10px] uppercase tracking-wider hidden sm:inline ${getQuestionIndicatorColor(q.id)}`}>
+                                    {getQuestionIndicatorText(q.id)}
+                                  </span>
                                 </div>
-                                <span className={`text-[10px] uppercase tracking-wider hidden sm:inline ${getQuestionIndicatorColor(q.id)}`}>
-                                  {getQuestionIndicatorText(q.id)}
-                                </span>
+                                {ratings[q.id] && (
+                                  <div className="sm:hidden text-center w-full mt-0.5 animate-fadeIn">
+                                    <span className={`text-[10px] font-extrabold uppercase tracking-wider bg-white px-2.5 py-1 rounded-md border inline-block ${getQuestionIndicatorColor(q.id)} border-slate-200 shadow-3xs`}>
+                                      Pilihan: {getQuestionIndicatorText(q.id)}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -3421,36 +4341,45 @@ export default function App() {
                               </div>
 
                               {/* LIKERT RADIO INPUT SECTOR */}
-                              <div className="flex justify-between items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200" id={`likert_selector_${q.id}`}>
-                                <div className="flex justify-around items-center gap-1.5 mx-auto sm:mx-0">
-                                  {[1, 2, 3, 4, 5].map((score) => (
-                                    <button
-                                      key={score}
-                                      type="button"
-                                      onClick={() => handleRatingSelect(q.id, score)}
-                                      className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex flex-col items-center justify-center border font-black text-xs transition-all cursor-pointer ${
-                                        ratings[q.id] === score
-                                          ? "bg-teal-600 border-teal-700 text-white shadow-sm scale-105"
-                                          : "/1/2/3".includes(score.toString())
-                                            ? "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
-                                      }`}
-                                      id={`btn_score_${q.id}_${score}`}
-                                    >
-                                      <span>{score}</span>
-                                      <span className="text-[7px] font-normal opacity-70 block">
-                                        {score === 1 && "S. Buruk"}
-                                        {score === 2 && "Buruk"}
-                                        {score === 3 && "Cukup"}
-                                        {score === 4 && "Baik"}
-                                        {score === 5 && "S. Baik"}
-                                      </span>
-                                    </button>
-                                  ))}
+                              <div className="flex flex-col gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200" id={`likert_selector_${q.id}`}>
+                                <div className="flex justify-between items-center gap-2 w-full">
+                                  <div className="flex justify-around items-center gap-1.5 mx-auto sm:mx-0">
+                                    {[1, 2, 3, 4, 5].map((score) => (
+                                      <button
+                                        key={score}
+                                        type="button"
+                                        onClick={() => handleRatingSelect(q.id, score)}
+                                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex flex-col items-center justify-center border font-black text-xs transition-all cursor-pointer ${
+                                          ratings[q.id] === score
+                                            ? "bg-teal-600 border-teal-700 text-white shadow-sm scale-105"
+                                            : "/1/2/3".includes(score.toString())
+                                              ? "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                                        }`}
+                                        id={`btn_score_${q.id}_${score}`}
+                                      >
+                                        <span>{score}</span>
+                                        <span className="text-[7px] font-normal opacity-70 block">
+                                          {score === 1 && "S. Buruk"}
+                                          {score === 2 && "Buruk"}
+                                          {score === 3 && "Cukup"}
+                                          {score === 4 && "Baik"}
+                                          {score === 5 && "S. Baik"}
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <span className={`text-[10px] uppercase tracking-wider hidden sm:inline ${getQuestionIndicatorColor(q.id)}`}>
+                                    {getQuestionIndicatorText(q.id)}
+                                  </span>
                                 </div>
-                                <span className={`text-[10px] uppercase tracking-wider hidden sm:inline ${getQuestionIndicatorColor(q.id)}`}>
-                                  {getQuestionIndicatorText(q.id)}
-                                </span>
+                                {ratings[q.id] && (
+                                  <div className="sm:hidden text-center w-full mt-0.5 animate-fadeIn">
+                                    <span className={`text-[10px] font-extrabold uppercase tracking-wider bg-white px-2.5 py-1 rounded-md border inline-block ${getQuestionIndicatorColor(q.id)} border-slate-200 shadow-3xs`}>
+                                      Pilihan: {getQuestionIndicatorText(q.id)}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))}

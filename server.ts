@@ -8,7 +8,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { db, initializeDatabase, hashPassword } from "./src/db/connect.js";
 import * as schema from "./src/db/schema.js";
-import { eq, and, avg, count, sql, inArray } from "drizzle-orm";
+import { eq, and, avg, count, sql, inArray, desc } from "drizzle-orm";
 import { 
   KegiatanUtama, 
   Sesi, 
@@ -992,6 +992,112 @@ app.post("/api/respondents/reset-all", async (req, res) => {
   } catch (error: any) {
     console.error("Error POST /api/respondents/reset-all:", error);
     res.status(500).json({ error: error.message || "Gagal membersihkan data penilaian" });
+  }
+});
+
+// --- API SUBMIT INTERNAL EVALUATION (ANONYMOUS) ---
+app.post("/api/internal-eval", async (req, res) => {
+  const { planning_score, pelaksanaan_score, partisipasi_score, tanggung_jawab_score, saran } = req.body;
+  if (
+    planning_score === undefined ||
+    pelaksanaan_score === undefined ||
+    partisipasi_score === undefined ||
+    tanggung_jawab_score === undefined
+  ) {
+    return res.status(400).json({ error: "Mohon lengkapi semua penilaian pilihan ganda (soal 1 - 4)" });
+  }
+  const ps = Number(planning_score);
+  const pls = Number(pelaksanaan_score);
+  const pts = Number(partisipasi_score);
+  const tjs = Number(tanggung_jawab_score);
+  if (
+    ps < 1 || ps > 5 ||
+    pls < 1 || pls > 5 ||
+    pts < 1 || pts > 5 ||
+    tjs < 1 || tjs > 5
+  ) {
+    return res.status(400).json({ error: "Nilai skor harus berada di antara range 1 hingga 5." });
+  }
+
+  try {
+    const inserted = await db.insert(schema.internalEvaluations).values({
+      planningScore: ps,
+      pelaksanaanScore: pls,
+      partisipasiScore: pts,
+      tanggungJawabScore: tjs,
+      saran: saran || ""
+    }).returning();
+    res.json({ success: true, id: inserted[0].id, message: "Evaluasi internal berhasil dikirimkan secara anonim. Terima kasih atas partisipasi dan masukan berharga Anda!" });
+  } catch (error: any) {
+    console.error("Error POST /api/internal-eval:", error);
+    res.status(500).json({ error: error.message || "Gagal mengirimkan evaluasi internal" });
+  }
+});
+
+// --- API GET INTERNAL EVALUATION STATS & LIST ---
+app.get("/api/internal-eval", async (req, res) => {
+  try {
+    const list = await db.select().from(schema.internalEvaluations).orderBy(desc(schema.internalEvaluations.createdAt));
+    
+    // Calculate aggregate averages
+    const total = list.length;
+    let avgPlanning = 0;
+    let avgPelaksanaan = 0;
+    let avgPartisipasi = 0;
+    let avgTanggungJawab = 0;
+
+    if (total > 0) {
+      const sumPlanning = list.reduce((sum, item) => sum + item.planningScore, 0);
+      const sumPelaksanaan = list.reduce((sum, item) => sum + item.pelaksanaanScore, 0);
+      const sumPartisipasi = list.reduce((sum, item) => sum + item.partisipasiScore, 0);
+      const sumTanggungJawab = list.reduce((sum, item) => sum + item.tanggungJawabScore, 0);
+
+      avgPlanning = parseFloat((sumPlanning / total).toFixed(2));
+      avgPelaksanaan = parseFloat((sumPelaksanaan / total).toFixed(2));
+      avgPartisipasi = parseFloat((sumPartisipasi / total).toFixed(2));
+      avgTanggungJawab = parseFloat((sumTanggungJawab / total).toFixed(2));
+    }
+
+    res.json({
+      success: true,
+      data: list,
+      stats: {
+        total,
+        avgPlanning,
+        avgPelaksanaan,
+        avgPartisipasi,
+        avgTanggungJawab
+      }
+    });
+  } catch (error: any) {
+    console.error("Error GET /api/internal-eval:", error);
+    res.status(500).json({ error: error.message || "Gagal mengambil data evaluasi internal" });
+  }
+});
+
+// --- API DELETE SINGLE INTERNAL EVALUATION ---
+app.delete("/api/internal-eval/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "ID evaluasi internal tidak valid" });
+    }
+    await db.delete(schema.internalEvaluations).where(eq(schema.internalEvaluations.id, id));
+    res.json({ success: true, message: `Evaluasi dengan ID ${id} berhasil dihapus` });
+  } catch (error: any) {
+    console.error("Error DELETE /api/internal-eval/:id:", error);
+    res.status(500).json({ error: error.message || "Gagal menghapus evaluasi internal" });
+  }
+});
+
+// --- API RESET ALL INTERNAL EVALUATIONS ---
+app.post("/api/internal-eval/reset-all", async (req, res) => {
+  try {
+    await db.delete(schema.internalEvaluations);
+    res.json({ success: true, message: "Semua data evaluasi internal berhasil dikosongkan. Keadaan bersih kembali!" });
+  } catch (error: any) {
+    console.error("Error POST /api/internal-eval/reset-all:", error);
+    res.status(500).json({ error: error.message || "Gagal mengosongkan evaluasi internal" });
   }
 });
 
