@@ -600,6 +600,35 @@ export default function App() {
       return;
     }
 
+    // Check suggestions/comment requirements (saran dan masukan wajib diisi)
+    if (activeSessionData.session.show_pemateri && (!saranPemateri || !saranPemateri.trim())) {
+      const errorMsg = "Saran, masukan, atau kritik untuk Pemateri wajib diisi.";
+      setSubmitError(errorMsg);
+      showToast(errorMsg, "error");
+      return;
+    }
+
+    if (activeSessionData.session.show_fasilitator && (!saranFasilitator || !saranFasilitator.trim())) {
+      const errorMsg = "Saran, masukan, atau kritik untuk Fasilitator wajib diisi.";
+      setSubmitError(errorMsg);
+      showToast(errorMsg, "error");
+      return;
+    }
+
+    if (activeSessionData.session.show_panitia && (!saranPanitia || !saranPanitia.trim())) {
+      const errorMsg = "Saran, masukan, atau kritik untuk Panitia Pelaksana wajib diisi.";
+      setSubmitError(errorMsg);
+      showToast(errorMsg, "error");
+      return;
+    }
+
+    if (activeSessionData.session.show_kegiatan && (!tindakLanjut || !tindakLanjut.trim())) {
+      const errorMsg = "Tindak lanjut dan komitmen pasca kegiatan wajib diisi.";
+      setSubmitError(errorMsg);
+      showToast(errorMsg, "error");
+      return;
+    }
+
     triggerConfirm(
       "Kirim Formulir Evaluasi?",
       "Apakah Anda yakin ingin mengirim semua penilaian ini? Jawaban Anda yang telah dikirim bersifat final.",
@@ -867,6 +896,12 @@ export default function App() {
     ) {
       setInternalError("Mohon pilih nilai (1 - 5) untuk keempat aspek penilaian.");
       showToast("Mohon lengkapi semua penilaian pilihan ganda.", "error");
+      return;
+    }
+
+    if (!internalSaran || !internalSaran.trim()) {
+      setInternalError("Saran dan Masukan wajib diisi.");
+      showToast("Saran dan Masukan wajib diisi.", "error");
       return;
     }
 
@@ -3830,7 +3865,7 @@ export default function App() {
                   <div className="flex items-start gap-2.5">
                     <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-2 py-0.5 rounded-md mt-0.5">5</span>
                     <label className="text-slate-900 text-xs font-black leading-relaxed block">
-                      SARAN DAN MASUKAN
+                      SARAN DAN MASUKAN <span className="text-rose-500 font-extrabold">*</span>
                       <p className="text-slate-500 font-medium mt-1 leading-relaxed">
                         Saran dan masukan Anda terkait Point 1–4 di atas, untuk perbaikan kegiatan berikutnya.
                       </p>
@@ -3842,7 +3877,7 @@ export default function App() {
                       rows={4}
                       value={internalSaran}
                       onChange={e => setInternalSaran(e.target.value)}
-                      placeholder="Tulis kritik konstruktif, saran, masukan perbaikan teknis atau penugasan di sini..."
+                      placeholder="Tulis kritik konstruktif, saran, masukan perbaikan teknis atau penugasan di sini... (Wajib)"
                       className="w-full text-slate-800 text-xs px-4 py-3 border border-slate-250 rounded-xl focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 bg-slate-50/50"
                     />
                   </div>
@@ -3859,14 +3894,18 @@ export default function App() {
                       internalPlanning === null ||
                       internalPelaksanaan === null ||
                       internalPartisipasi === null ||
-                      internalTanggungJawab === null
+                      internalTanggungJawab === null ||
+                      !internalSaran ||
+                      !internalSaran.trim()
                     }
                     className={`px-6 py-3 rounded-xl text-xs font-black shadow-sm transition-all cursor-pointer flex items-center gap-1.5 ${
                       internalSubmitting ||
                       internalPlanning === null ||
                       internalPelaksanaan === null ||
                       internalPartisipasi === null ||
-                      internalTanggungJawab === null
+                      internalTanggungJawab === null ||
+                      !internalSaran ||
+                      !internalSaran.trim()
                         ? "bg-slate-150 text-slate-400 cursor-not-allowed border border-slate-200"
                         : "bg-rose-600 hover:bg-rose-700 text-white border border-rose-700 hover:shadow-md"
                     }`}
@@ -4144,7 +4183,9 @@ export default function App() {
 
                         {/* COMMENTS FOR PEMATERI (A) */}
                         <div className="pt-4 border-t border-slate-100 space-y-1">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Saran, Masukan, atau Kritik Untuk Pemateri</label>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                            Saran, Masukan, atau Kritik Untuk Pemateri <span className="text-rose-500 font-extrabold">*</span>
+                          </label>
                           <textarea
                             rows={2}
                             placeholder="Tuliskan masukan konkret agar pemateri semakin baik menyampaikan materi..."
@@ -4225,7 +4266,9 @@ export default function App() {
 
                         {/* COMMENTS FOR FASILITATOR (B) */}
                         <div className="pt-4 border-t border-slate-100 space-y-1">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Saran, Masukan, atau Kritik Untuk Fasilitator</label>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                            Saran, Masukan, atau Kritik Untuk Fasilitator <span className="text-rose-500 font-extrabold">*</span>
+                          </label>
                           <textarea
                             rows={2}
                             placeholder="Tuliskan masukan konkret agar pendampingan kelompok semakin interaktif..."
@@ -4306,7 +4349,9 @@ export default function App() {
 
                         {/* COMMENTS FOR PANITIA (C) */}
                         <div className="pt-4 border-t border-slate-100 space-y-1">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Saran, Masukan, atau Kritik Untuk Panitia Pelaksana</label>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                            Saran, Masukan, atau Kritik Untuk Panitia Pelaksana <span className="text-rose-500 font-extrabold">*</span>
+                          </label>
                           <textarea
                             rows={2}
                             placeholder="Tuliskan kritik/saran mengenai ruangan, konsumsi, atau kelayakan tas/alat tulis..."
@@ -4388,7 +4433,9 @@ export default function App() {
                         {/* HIGH VALUE SESSIONS 3 SPECIAL QUESTIONS */}
                         <div className="pt-4 border-t border-slate-100 space-y-4">
                           <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">Tindak lanjut dan Komitmen Peserta dalam Pengawasan Partisipatif Pasca Kegiatan (Wajib)</label>
+                            <label className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">
+                              Tindak lanjut dan Komitmen Peserta dalam Pengawasan Partisipatif Pasca Kegiatan (Wajib) <span className="text-rose-500 font-extrabold">*</span>
+                            </label>
                             <textarea
                               rows={3}
                               placeholder="Tuliskan aksi nyata atau implementasi pengawasan partisipatif yang akan dilakukan pasca pelatihan..."
