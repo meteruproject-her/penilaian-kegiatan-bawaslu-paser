@@ -138,13 +138,28 @@ export async function initializeDatabase() {
       CREATE TABLE IF NOT EXISTS "internal_evaluations" (
         "id" SERIAL PRIMARY KEY,
         "planning_score" INTEGER NOT NULL,
+        "planning_reason" TEXT DEFAULT '' NOT NULL,
         "pelaksanaan_score" INTEGER NOT NULL,
+        "pelaksanaan_reason" TEXT DEFAULT '' NOT NULL,
         "partisipasi_score" INTEGER NOT NULL,
+        "partisipasi_reason" TEXT DEFAULT '' NOT NULL,
         "tanggung_jawab_score" INTEGER NOT NULL,
+        "tanggung_jawab_reason" TEXT DEFAULT '' NOT NULL,
         "saran" TEXT,
         "created_at" TIMESTAMP DEFAULT now() NOT NULL
       );
     `);
+
+    // Tambah kolom secara aman jika tabel sudah terbentuk sebelumnya
+    try {
+      await pool.query('ALTER TABLE "internal_evaluations" ADD COLUMN IF NOT EXISTS "planning_reason" TEXT DEFAULT \'\' NOT NULL;');
+      await pool.query('ALTER TABLE "internal_evaluations" ADD COLUMN IF NOT EXISTS "pelaksanaan_reason" TEXT DEFAULT \'\' NOT NULL;');
+      await pool.query('ALTER TABLE "internal_evaluations" ADD COLUMN IF NOT EXISTS "partisipasi_reason" TEXT DEFAULT \'\' NOT NULL;');
+      await pool.query('ALTER TABLE "internal_evaluations" ADD COLUMN IF NOT EXISTS "tanggung_jawab_reason" TEXT DEFAULT \'\' NOT NULL;');
+    } catch (colErr) {
+      console.warn("Lolos/sudah ada kolom baru pada internal_evaluations:", colErr);
+    }
+
     console.log("DDL Migrasi Sukses / Seluruh tabel Bawaslu tersedia.");
 
     // Seeding Admin Utama if empty

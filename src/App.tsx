@@ -261,9 +261,13 @@ export default function App() {
 
   // State for /evaluasi internal form
   const [internalPlanning, setInternalPlanning] = useState<number | null>(null);
+  const [internalPlanningReason, setInternalPlanningReason] = useState<string>("");
   const [internalPelaksanaan, setInternalPelaksanaan] = useState<number | null>(null);
+  const [internalPelaksanaanReason, setInternalPelaksanaanReason] = useState<string>("");
   const [internalPartisipasi, setInternalPartisipasi] = useState<number | null>(null);
+  const [internalPartisipasiReason, setInternalPartisipasiReason] = useState<string>("");
   const [internalTanggungJawab, setInternalTanggungJawab] = useState<number | null>(null);
+  const [internalTanggungJawabReason, setInternalTanggungJawabReason] = useState<string>("");
   const [internalSaran, setInternalSaran] = useState<string>("");
   const [internalSubmitting, setInternalSubmitting] = useState<boolean>(false);
   const [internalSuccess, setInternalSuccess] = useState<boolean>(false);
@@ -369,7 +373,7 @@ export default function App() {
   // States for detailed respondent evaluation view
   const [detailAspects, setDetailAspects] = useState<AspekPenilaian[]>([]);
   const [detailRespondents, setDetailRespondents] = useState<any[]>([]);
-  const [detailActiveCategory, setDetailActiveCategory] = useState<'A' | 'B' | 'C' | 'D'>('A');
+  const [detailActiveCategory, setDetailActiveCategory] = useState<'A' | 'B' | 'C' | 'D' | 'E'>('A');
   const [detailSearchQuery, setDetailSearchQuery] = useState("");
   const [detailPemateriFilter, setDetailPemateriFilter] = useState("");
   const [detailFasilitatorFilter, setDetailFasilitatorFilter] = useState("");
@@ -954,6 +958,17 @@ export default function App() {
       return;
     }
 
+    if (
+      !internalPlanningReason || !internalPlanningReason.trim() ||
+      !internalPelaksanaanReason || !internalPelaksanaanReason.trim() ||
+      !internalPartisipasiReason || !internalPartisipasiReason.trim() ||
+      !internalTanggungJawabReason || !internalTanggungJawabReason.trim()
+    ) {
+      setInternalError("Semua input teks alasan mengisi pilihan jawaban 1-4 wajib diisi.");
+      showToast("Alasan mengisi pilihan jawaban wajib diisi.", "error");
+      return;
+    }
+
     if (!internalSaran || !internalSaran.trim()) {
       setInternalError("Saran dan Masukan wajib diisi.");
       showToast("Saran dan Masukan wajib diisi.", "error");
@@ -969,9 +984,13 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           planning_score: internalPlanning,
+          planning_reason: internalPlanningReason,
           pelaksanaan_score: internalPelaksanaan,
+          pelaksanaan_reason: internalPelaksanaanReason,
           partisipasi_score: internalPartisipasi,
+          partisipasi_reason: internalPartisipasiReason,
           tanggung_jawab_score: internalTanggungJawab,
+          tanggung_jawab_reason: internalTanggungJawabReason,
           saran: internalSaran,
         }),
       });
@@ -982,9 +1001,13 @@ export default function App() {
         showToast("Formulir penilaian internal berhasil dikirimkan!", "success");
         // Reset states
         setInternalPlanning(null);
+        setInternalPlanningReason("");
         setInternalPelaksanaan(null);
+        setInternalPelaksanaanReason("");
         setInternalPartisipasi(null);
+        setInternalPartisipasiReason("");
         setInternalTanggungJawab(null);
+        setInternalTanggungJawabReason("");
         setInternalSaran("");
       } else {
         setInternalError(data.error || "Gagal mengirimkan formulir.");
@@ -1274,7 +1297,18 @@ export default function App() {
     const uniquePemateriList = Array.from(new Set(detailRespondents.map(r => r.nama_pemateri).filter(Boolean))) as string[];
     const uniqueFasilitatorList = Array.from(new Set(detailRespondents.map(r => r.nama_fasilitator).filter(Boolean))) as string[];
 
-    const filtered = detailRespondents.filter(r => {
+    const filteredInternal = detailActiveCategory === 'E' ? internalEvaluations.filter(e => {
+      if (!q) return true;
+      return (
+        (e.planningReason && e.planningReason.toLowerCase().includes(q)) ||
+        (e.pelaksanaanReason && e.pelaksanaanReason.toLowerCase().includes(q)) ||
+        (e.partisipasiReason && e.partisipasiReason.toLowerCase().includes(q)) ||
+        (e.tanggungJawabReason && e.tanggungJawabReason.toLowerCase().includes(q)) ||
+        (e.saran && e.saran.toLowerCase().includes(q))
+      );
+    }) : [];
+
+    const filtered = detailActiveCategory === 'E' ? [] : detailRespondents.filter(r => {
       const matchesSearch = !q ? true : (r.nama_peserta.toLowerCase().includes(q) || r.asal_instansi.toLowerCase().includes(q));
       if (!matchesSearch) return false;
 
@@ -1305,30 +1339,16 @@ export default function App() {
       const currentCategoryName = 
         detailActiveCategory === 'A' ? "Pemateri" :
         detailActiveCategory === 'B' ? "Fasilitator" :
-        detailActiveCategory === 'C' ? "Panitia" : "Kegiatan";
+        detailActiveCategory === 'C' ? "Panitia" :
+        detailActiveCategory === 'D' ? "Kegiatan" : "Evaluasi Internal";
 
       triggerConfirm(
         "Ekspor Excel",
         `Apakah Anda yakin ingin mengunduh rekap detail penilaian kategori "${currentCategoryName}" ke berkas Excel (.csv)?`,
         () => {
           try {
-            const headers = ["No", "Nama Peserta", "Asal Kampus / Instansi"];
-            
-            if (detailActiveCategory === 'A') {
-              headers.push("Nama Pemateri");
-            } else if (detailActiveCategory === 'B') {
-              headers.push("Nama Fasilitator");
-            }
-
-            catAspects.forEach(asp => {
-              const num = asp.no_urut || (asp as any).noUrut;
-              headers.push(`B${num}: ${asp.pertanyaan}`);
-            });
-            headers.push("Detail Kritik, Saran, & Feedback");
-            if (detailActiveCategory === 'D') {
-              headers.push("Rekomendasi Tindak Lanjut");
-              headers.push("Harapan Kedepan");
-            }
+            let headers: string[] = [];
+            let rows: string[] = [];
 
             const cleanCSVCell = (val: any) => {
               if (val === null || val === undefined) return '""';
@@ -1338,38 +1358,88 @@ export default function App() {
               return `"${str}"`;
             };
 
-            const rows = filtered.map((r, index) => {
-              let commentText = "";
-              if (detailActiveCategory === 'A') commentText = r.saran_pemateri;
-              else if (detailActiveCategory === 'B') commentText = r.saran_fasilitator;
-              else if (detailActiveCategory === 'C') commentText = r.saran_panitia;
-              else if (detailActiveCategory === 'D') commentText = r.saran_kegiatan;
-
-              const row = [
-                cleanCSVCell(index + 1),
-                cleanCSVCell(r.nama_peserta),
-                cleanCSVCell(r.asal_instansi)
+            if (detailActiveCategory === 'E') {
+              headers = [
+                "No", 
+                "Waktu Pengisian", 
+                "Skor 1 (Planning)", 
+                "Alasan Planning", 
+                "Skor 2 (Pelaksanaan)", 
+                "Alasan Pelaksanaan", 
+                "Skor 3 (Partisipasi)", 
+                "Alasan Partisipasi", 
+                "Skor 4 (Tanggung Jawab)", 
+                "Alasan Tanggung Jawab", 
+                "Saran & Masukan"
               ];
-
+              rows = filteredInternal.map((item, index) => {
+                const row = [
+                  cleanCSVCell(index + 1),
+                  cleanCSVCell(item.createdAt ? new Date(item.createdAt).toLocaleString("id-ID") : "-"),
+                  cleanCSVCell(item.planningScore),
+                  cleanCSVCell(item.planningReason),
+                  cleanCSVCell(item.pelaksanaanScore),
+                  cleanCSVCell(item.pelaksanaanReason),
+                  cleanCSVCell(item.partisipasiScore),
+                  cleanCSVCell(item.partisipasiReason),
+                  cleanCSVCell(item.tanggungJawabScore),
+                  cleanCSVCell(item.tanggungJawabReason),
+                  cleanCSVCell(item.saran)
+                ];
+                return row.join(";");
+              });
+            } else {
+              headers = ["No", "Nama Peserta", "Asal Kampus / Instansi"];
+              
               if (detailActiveCategory === 'A') {
-                row.push(cleanCSVCell(r.nama_pemateri || "-"));
+                headers.push("Nama Pemateri");
               } else if (detailActiveCategory === 'B') {
-                row.push(cleanCSVCell(r.nama_fasilitator || "-"));
+                headers.push("Nama Fasilitator");
               }
 
               catAspects.forEach(asp => {
-                row.push(cleanCSVCell(r.scores[asp.id] || "-"));
+                const num = asp.no_urut || (asp as any).noUrut;
+                headers.push(`B${num}: ${asp.pertanyaan}`);
               });
-
-              row.push(cleanCSVCell(commentText));
-
+              headers.push("Detail Kritik, Saran, & Feedback");
               if (detailActiveCategory === 'D') {
-                row.push(cleanCSVCell(r.tindak_lanjut));
-                row.push(cleanCSVCell(r.harapan));
+                headers.push("Rekomendasi Tindak Lanjut");
+                headers.push("Harapan Kedepan");
               }
 
-              return row.join(";");
-            });
+              rows = filtered.map((r, index) => {
+                let commentText = "";
+                if (detailActiveCategory === 'A') commentText = r.saran_pemateri;
+                else if (detailActiveCategory === 'B') commentText = r.saran_fasilitator;
+                else if (detailActiveCategory === 'C') commentText = r.saran_panitia;
+                else if (detailActiveCategory === 'D') commentText = r.saran_kegiatan;
+
+                const row = [
+                  cleanCSVCell(index + 1),
+                  cleanCSVCell(r.nama_peserta),
+                  cleanCSVCell(r.asal_instansi)
+                ];
+
+                if (detailActiveCategory === 'A') {
+                  row.push(cleanCSVCell(r.nama_pemateri || "-"));
+                } else if (detailActiveCategory === 'B') {
+                  row.push(cleanCSVCell(r.nama_fasilitator || "-"));
+                }
+
+                catAspects.forEach(asp => {
+                  row.push(cleanCSVCell(r.scores[asp.id] || "-"));
+                });
+
+                row.push(cleanCSVCell(commentText));
+
+                if (detailActiveCategory === 'D') {
+                  row.push(cleanCSVCell(r.tindak_lanjut));
+                  row.push(cleanCSVCell(r.harapan));
+                }
+
+                return row.join(";");
+              });
+            }
 
             const headerLine = headers.map(h => cleanCSVCell(h)).join(";");
             const csvContent = "\uFEFF" + "sep=;\n" + [headerLine, ...rows].join("\n");
@@ -1393,7 +1463,7 @@ export default function App() {
     return (
       <div className="space-y-4 font-sans" id="respondent_details_widget_card">
         {/* CATEGORY SELECTORS */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200" id="widget_category_selectors">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200" id="widget_category_selectors">
           <button
             onClick={() => setDetailActiveCategory('A')}
             className={`px-3 py-2 rounded-lg text-xs font-bold text-center transition-all cursor-pointer ${
@@ -1434,15 +1504,25 @@ export default function App() {
           >
             🌟 Kegiatan
           </button>
+          <button
+            onClick={() => setDetailActiveCategory('E')}
+            className={`px-3 py-2 rounded-lg text-xs font-bold text-center transition-all cursor-pointer col-span-2 sm:col-span-1 ${
+              detailActiveCategory === 'E'
+                ? "bg-rose-600 text-white shadow-xs"
+                : "text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+            }`}
+          >
+            🛡️ Eval. Internal
+          </button>
         </div>
 
-        {/* SEARCH & REKAP BAR */}
+         {/* SEARCH & REKAP BAR */}
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col md:flex-row gap-3 items-center justify-between shadow-xs">
           <div className="flex flex-col sm:flex-row gap-2.5 w-full md:w-auto items-stretch sm:items-center">
             <div className="relative w-full sm:w-64">
               <input
                 type="text"
-                placeholder="Cari nama peserta atau instansi..."
+                placeholder={detailActiveCategory === "E" ? "Cari alasan atau saran..." : "Cari nama peserta atau instansi..."}
                 value={detailSearchQuery}
                 className="w-full text-xs px-3 py-1.5 pl-8 bg-white border border-slate-250 rounded-lg focus:outline-none focus:border-blue-500 text-slate-800 font-medium"
                 onChange={(e) => setDetailSearchQuery(e.target.value)}
@@ -1488,9 +1568,9 @@ export default function App() {
           <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end">
             <button
               onClick={handleExportExcel}
-              disabled={filtered.length === 0}
+              disabled={detailActiveCategory === 'E' ? filteredInternal.length === 0 : filtered.length === 0}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shadow-xs transition-all ${
-                filtered.length === 0
+                (detailActiveCategory === 'E' ? filteredInternal.length === 0 : filtered.length === 0)
                   ? "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed"
                   : "bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700 cursor-pointer"
               }`}
@@ -1501,7 +1581,7 @@ export default function App() {
             </button>
             
             <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-              Total Respon Terfilter: <span className="font-bold text-slate-700 bg-slate-200/60 px-2 py-0.5 rounded-md">{filtered.length}</span> / {detailRespondents.length}
+              Total Respon Terfilter: <span className="font-bold text-slate-700 bg-slate-200/60 px-2 py-0.5 rounded-md">{detailActiveCategory === 'E' ? filteredInternal.length : filtered.length}</span> / {detailActiveCategory === 'E' ? internalEvaluations.length : detailRespondents.length}
             </div>
           </div>
         </div>
@@ -1513,119 +1593,216 @@ export default function App() {
               <thead>
                 <tr className="bg-slate-50 text-[9px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-150">
                   <th className="p-3 w-12 text-center select-none">No</th>
-                  <th className="p-3">Nama Peserta</th>
-                  <th className="p-3">Kampus / Instansi</th>
-                  {detailActiveCategory === 'A' && <th className="p-3">Nama Pemateri</th>}
-                  {detailActiveCategory === 'B' && <th className="p-3">Nama Fasilitator</th>}
-                  {catAspects.map((asp) => {
-                    const num = asp.no_urut || (asp as any).noUrut;
-                    return (
-                      <th 
-                        key={asp.id} 
-                        className="p-3 text-center min-w-[70px]"
-                        title={asp.pertanyaan}
-                      >
-                        <div className="cursor-help flex flex-col items-center">
-                          <span className="text-slate-800 font-extrabold">B{num}</span>
-                          <span className="text-[8px] text-slate-400 normal-case font-normal truncate max-w-[55px] block">{asp.pertanyaan}</span>
-                        </div>
-                      </th>
-                    );
-                  })}
-                  <th className="p-3 min-w-[250px]">Detail Kritik, Saran, & Feedback</th>
-                  {detailActiveCategory === 'D' && (
+                  {detailActiveCategory === 'E' ? (
                     <>
-                      <th className="p-3 min-w-[180px]">Rekomendasi Tindak Lanjut</th>
-                      <th className="p-3 min-w-[180px]">Harapan Kedepan</th>
+                      <th className="p-3 w-36">Waktu Pengisian</th>
+                      <th className="p-3 text-center">Score 1 (Planning)</th>
+                      <th className="p-3">Alasan Planning</th>
+                      <th className="p-3 text-center">Score 2 (Pelaksanaan)</th>
+                      <th className="p-3">Alasan Pelaksanaan</th>
+                      <th className="p-3 text-center">Score 3 (Partisipasi)</th>
+                      <th className="p-3">Alasan Partisipasi</th>
+                      <th className="p-3 text-center">Score 4 (Tanggung Jawab)</th>
+                      <th className="p-3">Alasan Tanggung Jawab</th>
+                      <th className="p-3 min-w-[200px]">Detail Kritik, Saran, & Feedback (No. 5)</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="p-3">Nama Peserta</th>
+                      <th className="p-3">Kampus / Instansi</th>
+                      {detailActiveCategory === 'A' && <th className="p-3">Nama Pemateri</th>}
+                      {detailActiveCategory === 'B' && <th className="p-3">Nama Fasilitator</th>}
+                      {catAspects.map((asp) => {
+                        const num = asp.no_urut || (asp as any).noUrut;
+                        return (
+                          <th 
+                            key={asp.id} 
+                            className="p-3 text-center min-w-[70px]"
+                            title={asp.pertanyaan}
+                          >
+                            <div className="cursor-help flex flex-col items-center">
+                              <span className="text-slate-800 font-extrabold">B{num}</span>
+                              <span className="text-[8px] text-slate-400 normal-case font-normal truncate max-w-[55px] block">{asp.pertanyaan}</span>
+                            </div>
+                          </th>
+                        );
+                      })}
+                      <th className="p-3 min-w-[250px]">Detail Kritik, Saran, & Feedback</th>
+                      {detailActiveCategory === 'D' && (
+                        <>
+                          <th className="p-3 min-w-[180px]">Rekomendasi Tindak Lanjut</th>
+                          <th className="p-3 min-w-[180px]">Harapan Kedepan</th>
+                        </>
+                      )}
                     </>
                   )}
                   {activeTab === "detail-hasil" && <th className="p-3 w-20 text-center select-none">Aksi</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-150">
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={activeTab === "detail-hasil" ? 18 : 17} className="p-10 text-center text-slate-400 italic">
-                      Tidak ada detail penilaian peserta yang sesuai dengan filter pencarian.
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((r, index) => {
-                    let commentText = "";
-                    if (detailActiveCategory === 'A') commentText = r.saran_pemateri;
-                    else if (detailActiveCategory === 'B') commentText = r.saran_fasilitator;
-                    else if (detailActiveCategory === 'C') commentText = r.saran_panitia;
-                    else if (detailActiveCategory === 'D') commentText = r.saran_kegiatan;
-
-                    return (
-                      <tr key={`rawresp-${r.id}-${index}`} className="hover:bg-slate-50/40 transition-colors">
+                {detailActiveCategory === 'E' ? (
+                  filteredInternal.length === 0 ? (
+                    <tr>
+                      <td colSpan={activeTab === "detail-hasil" ? 12 : 11} className="p-10 text-center text-slate-400 italic">
+                        Tidak ada detail evaluasi internal yang sesuai dengan filter pencarian.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredInternal.map((item, index) => (
+                      <tr key={`rawinternal-${item.id}-${index}`} className="hover:bg-slate-50/40 transition-colors">
                         <td className="p-3 text-center font-mono text-slate-400 text-[11px] font-semibold">{index + 1}</td>
-                        <td className="p-3 font-extrabold text-slate-900">{r.nama_peserta}</td>
-                        <td className="p-3 font-bold text-slate-600">{r.asal_instansi}</td>
-                        
-                        {detailActiveCategory === 'A' && (
-                          <td className="p-3 text-slate-800 font-semibold text-xs min-w-[120px]">
-                            {r.nama_pemateri || <span className="text-slate-300 italic">-</span>}
-                          </td>
-                        )}
-                        {detailActiveCategory === 'B' && (
-                          <td className="p-3 text-slate-800 font-semibold text-xs min-w-[150px]">
-                            {r.nama_fasilitator || <span className="text-slate-300 italic">-</span>}
-                          </td>
-                        )}
-
-                        {catAspects.map((asp) => {
-                          const score = r.scores[asp.id];
-                          return (
-                            <td key={asp.id} className="p-3 text-center">
-                              {score ? (
-                                <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black ${
-                                  score >= 4 
-                                    ? "bg-green-50 text-green-700 border border-green-200"
-                                    : score === 3
-                                    ? "bg-amber-50 text-amber-700 border border-amber-200"
-                                    : "bg-rose-50 text-rose-700 border border-rose-200"
-                                }`}>
-                                  {score}
-                                </span>
-                              ) : (
-                                <span className="text-slate-300">-</span>
-                              )}
-                            </td>
-                          );
-                        })}
-                        <td className="p-3 text-slate-600 text-[11px] leading-relaxed whitespace-pre-wrap max-w-[280px]">
-                          {commentText ? (
-                            commentText
-                          ) : (
-                            <span className="text-slate-300 italic">Tidak ada catatan</span>
-                          )}
+                        <td className="p-3 text-slate-500 whitespace-nowrap">
+                          {new Date(item.createdAt).toLocaleString("id-ID", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit"
+                          })}
                         </td>
-                        {detailActiveCategory === 'D' && (
-                          <>
-                            <td className="p-3 text-slate-600 text-[11px] leading-relaxed whitespace-pre-wrap max-w-[220px]">
-                              {r.tindak_lanjut ? r.tindak_lanjut : <span className="text-slate-300 italic">-</span>}
-                            </td>
-                            <td className="p-3 text-slate-600 text-[11px] leading-relaxed whitespace-pre-wrap max-w-[220px]">
-                              {r.harapan ? r.harapan : <span className="text-slate-300 italic">-</span>}
-                            </td>
-                          </>
-                        )}
+                        <td className="p-3 text-center">
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black border ${
+                            item.planningScore >= 4 ? "bg-emerald-50 border-emerald-200 text-emerald-700" : item.planningScore >= 3 ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-rose-50 border-rose-200 text-rose-700"
+                          }`}>
+                            {item.planningScore}
+                          </span>
+                        </td>
+                        <td className="p-3 text-slate-600 italic text-[11px] leading-relaxed max-w-[180px] break-words">
+                          {item.planningReason ? `"${item.planningReason}"` : <span className="text-slate-350">-</span>}
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black border ${
+                            item.pelaksanaanScore >= 4 ? "bg-emerald-50 border-emerald-200 text-emerald-700" : item.pelaksanaanScore >= 3 ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-rose-50 border-rose-200 text-rose-700"
+                          }`}>
+                            {item.pelaksanaanScore}
+                          </span>
+                        </td>
+                        <td className="p-3 text-slate-600 italic text-[11px] leading-relaxed max-w-[180px] break-words">
+                          {item.pelaksanaanReason ? `"${item.pelaksanaanReason}"` : <span className="text-slate-350">-</span>}
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black border ${
+                            item.partisipasiScore >= 4 ? "bg-emerald-50 border-emerald-200 text-emerald-700" : item.partisipasiScore >= 3 ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-rose-50 border-rose-200 text-rose-700"
+                          }`}>
+                            {item.partisipasiScore}
+                          </span>
+                        </td>
+                        <td className="p-3 text-slate-600 italic text-[11px] leading-relaxed max-w-[180px] break-words">
+                          {item.partisipasiReason ? `"${item.partisipasiReason}"` : <span className="text-slate-350">-</span>}
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black border ${
+                            item.tanggungJawabScore >= 4 ? "bg-emerald-50 border-emerald-200 text-emerald-700" : item.tanggungJawabScore >= 3 ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-rose-50 border-rose-200 text-rose-700"
+                          }`}>
+                            {item.tanggungJawabScore}
+                          </span>
+                        </td>
+                        <td className="p-3 text-slate-600 italic text-[11px] leading-relaxed max-w-[180px] break-words">
+                          {item.tanggungJawabReason ? `"${item.tanggungJawabReason}"` : <span className="text-slate-350">-</span>}
+                        </td>
+                        <td className="p-3 text-slate-800 font-bold text-[11px] leading-relaxed max-w-[240px] break-words">
+                          {item.saran ? `"${item.saran}"` : <span className="text-slate-350 italic">Tidak ada saran</span>}
+                        </td>
                         {activeTab === "detail-hasil" && (
-                          <td className="p-3 text-center">
+                          <td className="p-3 text-center whitespace-nowrap">
                             <button
-                              onClick={() => handleDeleteRespondent(r.id, r.nama_peserta)}
+                              onClick={() => handleDeleteInternalEval(item.id)}
                               className="bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 px-2 py-1 flex items-center justify-center gap-1 rounded-md border border-rose-100 text-[10px] font-extrabold cursor-pointer transition-all mx-auto"
-                              title="Hapus penilaian responden ini"
+                              title="Hapus evaluasi internal ini"
                             >
-                              <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                              <Trash2 className="w-3.5 h-3.5" />
                               <span>Hapus</span>
                             </button>
                           </td>
                         )}
                       </tr>
-                    );
-                  })
+                    ))
+                  )
+                ) : (
+                  filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan={activeTab === "detail-hasil" ? 18 : 17} className="p-10 text-center text-slate-400 italic">
+                        Tidak ada detail penilaian peserta yang sesuai dengan filter pencarian.
+                      </td>
+                    </tr>
+                  ) : (
+                    filtered.map((r, index) => {
+                      let commentText = "";
+                      if (detailActiveCategory === 'A') commentText = r.saran_pemateri;
+                      else if (detailActiveCategory === 'B') commentText = r.saran_fasilitator;
+                      else if (detailActiveCategory === 'C') commentText = r.saran_panitia;
+                      else if (detailActiveCategory === 'D') commentText = r.saran_kegiatan;
+
+                      return (
+                        <tr key={`rawresp-${r.id}-${index}`} className="hover:bg-slate-50/40 transition-colors">
+                          <td className="p-3 text-center font-mono text-slate-400 text-[11px] font-semibold">{index + 1}</td>
+                          <td className="p-3 font-extrabold text-slate-900">{r.nama_peserta}</td>
+                          <td className="p-3 font-bold text-slate-600">{r.asal_instansi}</td>
+                          
+                          {detailActiveCategory === 'A' && (
+                            <td className="p-3 text-slate-800 font-semibold text-xs min-w-[120px]">
+                              {r.nama_pemateri || <span className="text-slate-300 italic">-</span>}
+                            </td>
+                          )}
+                          {detailActiveCategory === 'B' && (
+                            <td className="p-3 text-slate-800 font-semibold text-xs min-w-[150px]">
+                              {r.nama_fasilitator || <span className="text-slate-300 italic">-</span>}
+                            </td>
+                          )}
+
+                          {catAspects.map((asp) => {
+                            const score = r.scores[asp.id];
+                            return (
+                              <td key={asp.id} className="p-3 text-center">
+                                {score ? (
+                                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black ${
+                                    score >= 4 
+                                      ? "bg-green-50 text-green-700 border border-green-200"
+                                      : score === 3
+                                      ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                      : "bg-rose-50 text-rose-700 border border-rose-200"
+                                  }`}>
+                                    {score}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300">-</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                          <td className="p-3 text-slate-600 text-[11px] leading-relaxed whitespace-pre-wrap max-w-[280px]">
+                            {commentText ? (
+                              commentText
+                            ) : (
+                              <span className="text-slate-300 italic">Tidak ada catatan</span>
+                            )}
+                          </td>
+                          {detailActiveCategory === 'D' && (
+                            <>
+                              <td className="p-3 text-slate-600 text-[11px] leading-relaxed whitespace-pre-wrap max-w-[220px]">
+                                {r.tindak_lanjut ? r.tindak_lanjut : <span className="text-slate-300 italic">-</span>}
+                              </td>
+                              <td className="p-3 text-slate-600 text-[11px] leading-relaxed whitespace-pre-wrap max-w-[220px]">
+                                {r.harapan ? r.harapan : <span className="text-slate-300 italic">-</span>}
+                              </td>
+                            </>
+                          )}
+                          {activeTab === "detail-hasil" && (
+                            <td className="p-3 text-center">
+                              <button
+                                onClick={() => handleDeleteRespondent(r.id, r.nama_peserta)}
+                                className="bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 px-2 py-1 flex items-center justify-center gap-1 rounded-md border border-rose-100 text-[10px] font-extrabold cursor-pointer transition-all mx-auto"
+                                title="Hapus penilaian responden ini"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                <span>Hapus</span>
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })
+                  )
                 )}
               </tbody>
             </table>
@@ -3631,13 +3808,40 @@ export default function App() {
                                 </span>
                               </td>
                               <td className="py-3 px-4 text-slate-700 font-sans leading-relaxed text-[11px] whitespace-pre-wrap max-w-sm">
-                                {item.saran ? (
-                                  <div className="bg-slate-50/70 rounded-lg p-2.5 border border-slate-100 italic">
-                                    "{item.saran}"
+                                <div className="space-y-2 bg-slate-50 border border-slate-100 rounded-xl p-3 shadow-3xs" id={`detail_reasons_${item.id}`}>
+                                  {item.planningReason && (
+                                    <div className="text-slate-600">
+                                      <span className="font-extrabold text-rose-600 block text-[9px] uppercase tracking-wider">Alasan Planning (No. 1):</span>
+                                      <p className="italic text-slate-700 mt-0.5">"{item.planningReason}"</p>
+                                    </div>
+                                  )}
+                                  {item.pelaksanaanReason && (
+                                    <div className="text-slate-600 pt-1.5 border-t border-slate-200">
+                                      <span className="font-extrabold text-indigo-600 block text-[9px] uppercase tracking-wider">Alasan Pelaksanaan (No. 2):</span>
+                                      <p className="italic text-slate-700 mt-0.5">"{item.pelaksanaanReason}"</p>
+                                    </div>
+                                  )}
+                                  {item.partisipasiReason && (
+                                    <div className="text-slate-600 pt-1.5 border-t border-slate-200">
+                                      <span className="font-extrabold text-amber-600 block text-[9px] uppercase tracking-wider">Alasan Partisipasi (No. 3):</span>
+                                      <p className="italic text-slate-700 mt-0.5">"{item.partisipasiReason}"</p>
+                                    </div>
+                                  )}
+                                  {item.tanggungJawabReason && (
+                                    <div className="text-slate-600 pt-1.5 border-t border-slate-200">
+                                      <span className="font-extrabold text-teal-600 block text-[9px] uppercase tracking-wider">Alasan Tanggung Jawab (No. 4):</span>
+                                      <p className="italic text-slate-700 mt-0.5">"{item.tanggungJawabReason}"</p>
+                                    </div>
+                                  )}
+                                  <div className="text-slate-800 pt-1.5 border-t border-slate-200">
+                                    <span className="font-extrabold text-slate-900 block text-[9px] uppercase tracking-wider">Saran & Masukan (No. 5):</span>
+                                    {item.saran ? (
+                                      <p className="italic font-bold text-slate-900 mt-0.5">"{item.saran}"</p>
+                                    ) : (
+                                      <span className="text-slate-400 italic font-medium">Tidak ada saran tertulis</span>
+                                    )}
                                   </div>
-                                ) : (
-                                  <span className="text-slate-400 font-medium italic">Tidak ada saran tertulis</span>
-                                )}
+                                </div>
                               </td>
                               <td className="py-3 px-4 text-center">
                                 <button
@@ -3760,6 +3964,19 @@ export default function App() {
                       </span>
                     </div>
                   )}
+
+                  <div className="pt-2 animate-fadeIn" id="reason_planning_container">
+                    <label className="text-slate-800 text-[11px] font-black block mb-1">
+                      Alasan Memilih Jawaban Di Atas <span className="text-rose-500 font-extrabold">*</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={internalPlanningReason}
+                      onChange={e => setInternalPlanningReason(e.target.value)}
+                      placeholder="Tulis alasan anda memilih jawaban tersebut..."
+                      className="w-full text-slate-800 text-xs px-4 py-2.5 border border-slate-250 rounded-xl focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 bg-white transition-all shadow-3xs"
+                    />
+                  </div>
                 </div>
 
                 {/* Question 2 */}
@@ -3807,6 +4024,19 @@ export default function App() {
                       </span>
                     </div>
                   )}
+
+                  <div className="pt-2 animate-fadeIn" id="reason_pelaksanaan_container">
+                    <label className="text-slate-800 text-[11px] font-black block mb-1">
+                      Alasan Memilih Jawaban Di Atas <span className="text-rose-500 font-extrabold">*</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={internalPelaksanaanReason}
+                      onChange={e => setInternalPelaksanaanReason(e.target.value)}
+                      placeholder="Tulis alasan anda memilih jawaban tersebut..."
+                      className="w-full text-slate-800 text-xs px-4 py-2.5 border border-slate-250 rounded-xl focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 bg-white transition-all shadow-3xs"
+                    />
+                  </div>
                 </div>
 
                 {/* Question 3 */}
@@ -3854,6 +4084,19 @@ export default function App() {
                       </span>
                     </div>
                   )}
+
+                  <div className="pt-2 animate-fadeIn" id="reason_partisipasi_container">
+                    <label className="text-slate-800 text-[11px] font-black block mb-1">
+                      Alasan Memilih Jawaban Di Atas <span className="text-rose-500 font-extrabold">*</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={internalPartisipasiReason}
+                      onChange={e => setInternalPartisipasiReason(e.target.value)}
+                      placeholder="Tulis alasan anda memilih jawaban tersebut..."
+                      className="w-full text-slate-800 text-xs px-4 py-2.5 border border-slate-250 rounded-xl focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 bg-white transition-all shadow-3xs"
+                    />
+                  </div>
                 </div>
 
                 {/* Question 4 */}
@@ -3901,6 +4144,19 @@ export default function App() {
                       </span>
                     </div>
                   )}
+
+                  <div className="pt-2 animate-fadeIn" id="reason_tanggung_jawab_container">
+                    <label className="text-slate-800 text-[11px] font-black block mb-1">
+                      Alasan Memilih Jawaban Di Atas <span className="text-rose-500 font-extrabold">*</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={internalTanggungJawabReason}
+                      onChange={e => setInternalTanggungJawabReason(e.target.value)}
+                      placeholder="Tulis alasan anda memilih jawaban tersebut..."
+                      className="w-full text-slate-800 text-xs px-4 py-2.5 border border-slate-250 rounded-xl focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 bg-white transition-all shadow-3xs"
+                    />
+                  </div>
                 </div>
 
                 {/* Question 5 */}
@@ -3908,9 +4164,9 @@ export default function App() {
                   <div className="flex items-start gap-2.5">
                     <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-2 py-0.5 rounded-md mt-0.5">5</span>
                     <label className="text-slate-900 text-xs font-black leading-relaxed block">
-                      SARAN DAN MASUKAN <span className="text-rose-500 font-extrabold">*</span>
+                      Saran dan Masukan <span className="text-rose-500 font-extrabold">*</span>
                       <p className="text-slate-500 font-medium mt-1 leading-relaxed">
-                        Saran dan masukan Anda terkait Point 1–4 di atas, untuk perbaikan kegiatan berikutnya.
+                        Saran dan masukan Anda untuk perbaikan kegiatan berikutnya.
                       </p>
                     </label>
                   </div>
@@ -3920,8 +4176,8 @@ export default function App() {
                       rows={4}
                       value={internalSaran}
                       onChange={e => setInternalSaran(e.target.value)}
-                      placeholder="Tulis kritik konstruktif, saran, masukan perbaikan teknis atau penugasan di sini... (Wajib)"
-                      className="w-full text-slate-800 text-xs px-4 py-3 border border-slate-250 rounded-xl focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 bg-white transition-all shadow-3xs"
+                      placeholder="tulis saran dan masukan anda disini"
+                      className="w-full text-slate-850 text-xs px-4 py-3 border border-slate-250 rounded-xl focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 bg-white transition-all shadow-3xs"
                     />
                   </div>
                 </div>

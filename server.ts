@@ -997,7 +997,18 @@ app.post("/api/respondents/reset-all", async (req, res) => {
 
 // --- API SUBMIT INTERNAL EVALUATION (ANONYMOUS) ---
 app.post("/api/internal-eval", async (req, res) => {
-  const { planning_score, pelaksanaan_score, partisipasi_score, tanggung_jawab_score, saran } = req.body;
+  const { 
+    planning_score, 
+    planning_reason,
+    pelaksanaan_score, 
+    pelaksanaan_reason,
+    partisipasi_score, 
+    partisipasi_reason,
+    tanggung_jawab_score, 
+    tanggung_jawab_reason,
+    saran 
+  } = req.body;
+
   if (
     planning_score === undefined ||
     pelaksanaan_score === undefined ||
@@ -1006,6 +1017,16 @@ app.post("/api/internal-eval", async (req, res) => {
   ) {
     return res.status(400).json({ error: "Mohon lengkapi semua penilaian pilihan ganda (soal 1 - 4)" });
   }
+
+  if (
+    !planning_reason || !planning_reason.trim() ||
+    !pelaksanaan_reason || !pelaksanaan_reason.trim() ||
+    !partisipasi_reason || !partisipasi_reason.trim() ||
+    !tanggung_jawab_reason || !tanggung_jawab_reason.trim()
+  ) {
+    return res.status(400).json({ error: "Alasan untuk masing-masing pilihan jawaban 1 - 4 wajib diisi." });
+  }
+
   const ps = Number(planning_score);
   const pls = Number(pelaksanaan_score);
   const pts = Number(partisipasi_score);
@@ -1022,9 +1043,13 @@ app.post("/api/internal-eval", async (req, res) => {
   try {
     const inserted = await db.insert(schema.internalEvaluations).values({
       planningScore: ps,
+      planningReason: planning_reason.trim(),
       pelaksanaanScore: pls,
+      pelaksanaanReason: pelaksanaan_reason.trim(),
       partisipasiScore: pts,
+      partisipasiReason: partisipasi_reason.trim(),
       tanggungJawabScore: tjs,
+      tanggungJawabReason: tanggung_jawab_reason.trim(),
       saran: saran || ""
     }).returning();
     res.json({ success: true, id: inserted[0].id, message: "Evaluasi internal berhasil dikirimkan secara anonim. Terima kasih atas partisipasi dan masukan berharga Anda!" });

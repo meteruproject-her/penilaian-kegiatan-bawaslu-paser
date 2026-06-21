@@ -144,9 +144,13 @@ export const adminUsers = pgTable("admin_users", {
 export const internalEvaluations = pgTable("internal_evaluations", {
   id: serial("id").primaryKey(),
   planningScore: integer("planning_score").notNull(),
+  planningReason: text("planning_reason").default("").notNull(),
   pelaksanaanScore: integer("pelaksanaan_score").notNull(),
+  pelaksanaanReason: text("pelaksanaan_reason").default("").notNull(),
   partisipasiScore: integer("partisipasi_score").notNull(),
+  partisipasiReason: text("partisipasi_reason").default("").notNull(),
   tanggungJawabScore: integer("tanggung_jawab_score").notNull(),
+  tanggungJawabReason: text("tanggung_jawab_reason").default("").notNull(),
   saran: text("saran"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
